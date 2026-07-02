@@ -4,6 +4,13 @@
  * SQL 中 ? 占位符自动转换为 $1, $2, ...
  */
 const { Pool } = require('pg');
+const pgTypes = require('pg').native ? require('pg').native.types : require('pg').types;
+
+// PostgreSQL 默认将 int8(bigint) 和 numeric 返回为字符串，这里统一转为 JS 数字
+const numericTypes = [20, 21, 23, 700, 701, 1700]; // int8, int2, int4, float4, float8, numeric
+numericTypes.forEach(oid => {
+  pgTypes.setTypeParser(oid, val => val === null ? null : Number(val));
+});
 
 class PgAdapter {
   constructor(connectionString) {

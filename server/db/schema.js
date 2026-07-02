@@ -318,7 +318,7 @@ async function initSchema(db, dbType) {
 // PostgreSQL 异步 seed
 async function seedData(db, dbType) {
   const adminCount = await db.get('SELECT COUNT(*) as count FROM admins');
-  if (adminCount.count === 0) {
+  if (Number(adminCount.count) === 0) {
     const hash = bcrypt.hashSync('Admin@2026', 10);
     await db.run(`
       INSERT INTO admins (username, password_hash, real_name, department, role, status, project_ids, modules, created)
@@ -327,13 +327,13 @@ async function seedData(db, dbType) {
   }
 
   const catCount = await db.get('SELECT COUNT(*) as count FROM categories');
-  if (catCount.count === 0) {
+  if (Number(catCount.count) === 0) {
     await db.run('INSERT INTO categories (name) VALUES (?)', '公共红线考试');
     await db.run('INSERT INTO categories (name) VALUES (?)', '项目红线考试');
   }
 
   const deptCount = await db.get('SELECT COUNT(*) as count FROM departments');
-  if (deptCount.count === 0) {
+  if (Number(deptCount.count) === 0) {
     await db.run('INSERT INTO departments (name, level, parent_id) VALUES (?, ?, ?)', '产品研发部', 1, null);
     await db.run('INSERT INTO departments (name, level, parent_id) VALUES (?, ?, ?)', '市场营销部', 1, null);
     await db.run('INSERT INTO departments (name, level, parent_id) VALUES (?, ?, ?)', '财务部', 1, null);
@@ -345,7 +345,7 @@ async function seedData(db, dbType) {
   }
 
   const settingsCount = await db.get('SELECT COUNT(*) as count FROM settings');
-  if (settingsCount.count === 0) {
+  if (Number(settingsCount.count) === 0) {
     const defaults = {
       defaultPassScore: '60',
       defaultDuration: '60',

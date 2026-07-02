@@ -68,7 +68,7 @@ router.delete('/admins/:id', adminOnly, async (req, res) => {
   try {
     const db = getDb();
     const count = await db.get('SELECT COUNT(*) as count FROM admins');
-    if (count.count <= 1) return res.status(400).json({ error: '至少保留一个管理员' });
+    if (Number(count.count) <= 1) return res.status(400).json({ error: '至少保留一个管理员' });
     await db.run('DELETE FROM admins WHERE id = ?', req.params.id);
     res.json({ success: true });
   } catch (err) {
@@ -223,10 +223,10 @@ router.get('/stats', adminOnly, async (req, res) => {
       : 0;
 
     res.json({
-      total_questions: questionCount.count,
-      total_exams: examCount.count,
-      active_exams: activeExams.count,
-      total_examinees: resultCount.count,
+      total_questions: Number(questionCount.count),
+      total_exams: Number(examCount.count),
+      active_exams: Number(activeExams.count),
+      total_examinees: Number(resultCount.count),
       pass_rate: passRate,
       avg_score: avgScore
     });

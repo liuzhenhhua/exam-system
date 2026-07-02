@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
     if (search) { sql += ' AND title LIKE ?'; params.push(`%${search}%`); }
 
     const countRow = await db.get(sql.replace('SELECT *', 'SELECT COUNT(*) as total'), ...params);
-    const total = countRow.total;
+    const total = Number(countRow.total);
 
     const pg = parseInt(page) || 1;
     const ps = Math.min(parseInt(pageSize) || 50, 200);
