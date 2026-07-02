@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台 - 企业培训考试系统</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .admin-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+        .sidebar {
+            width: 240px;
+            background: #fff;
+            border-right: 1px solid #e5e7eb;
+            padding: 20px 16px;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px 24px;
+            border-bottom: 1px solid #f3f4f6;
+            margin-bottom: 16px;
+        }
+        .sidebar-brand-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .sidebar-brand-text {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1f2937;
+            line-height: 1.3;
+        }
+        .sidebar-brand-sub {
+            font-size: 11px;
+            color: #9ca3af;
+        }
+        .sidebar-nav {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .sidebar-section-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #9ca3af;
+            text-transform: uppercase;
+            padding: 16px 16px 8px;
+            letter-spacing: 0.5px;
+        }
+        .sidebar-footer {
+            padding-top: 16px;
+            border-top: 1px solid #f3f4f6;
+        }
+        .main-area {
+            margin-left: 240px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .top-bar {
+            background: #fff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0 28px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+        .top-bar-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .top-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .icon-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .icon-btn:hover {
+            background: #f3f4f6;
+            color: #1f2937;
+        }
+        .notification-dot {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            border: 2px solid #fff;
+        }
+        .admin-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 4px 12px;
+            border-radius: 30px;
+            background: #f3f4f6;
+            cursor: pointer;
+        }
+        .admin-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .admin-name { font-size: 14px; font-weight: 500; color: #374151; }
+        .admin-role { font-size: 11px; color: #9ca3af; }
+
+        .content-area {
+            padding: 28px;
+            flex: 1;
+        }
+
+        /* 统计卡片 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .stat-card-title {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .stat-card-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+        .stat-card-trend {
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .stat-card-icon {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .stat-card-purple::before { background: #4f46e5; }
+        .stat-card-purple .stat-card-icon { background: #eef2ff; color: #4f46e5; }
+        .stat-card-blue::before { background: #3b82f6; }
+        .stat-card-blue .stat-card-icon { background: #dbeafe; color: #3b82f6; }
+        .stat-card-green::before { background: #10b981; }
+        .stat-card-green .stat-card-icon { background: #dcfce7; color: #10b981; }
+        .stat-card-orange::before { background: #f59e0b; }
+        .stat-card-orange .stat-card-icon { background: #fef3c7; color: #d97706; }
+
+        /* 快捷操作 */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .quick-action-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .quick-action-card:hover {
+            border-color: #c7d2fe;
+            box-shadow: 0 4px 12px rgba(79,70,229,0.1);
+            transform: translateY(-2px);
+        }
+        .qa-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .qa-text-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 2px;
+        }
+        .qa-text-desc {
+            font-size: 13px;
+            color: #9ca3af;
+        }
+
+        /* 最近考试 */
+        .recent-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .panel-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .panel-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .recent-exam-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .recent-exam-item:last-child { border-bottom: none; }
+        .recent-exam-info { flex: 1; }
+        .recent-exam-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+        .recent-exam-meta {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+        .progress-mini {
+            width: 100px;
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 6px;
+        }
+        .progress-mini-fill {
+            height: 100%;
+            background: #4f46e5;
+            border-radius: 3px;
+        }
+
+        .notice-item {
+            padding: 12px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .notice-item:last-child { border-bottom: none; }
+        .notice-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+        .notice-time {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        /* 部门成绩概览 */
+        .dept-stats-section {
+            margin-bottom: 28px;
+        }
+        .dept-stats-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .dept-stats-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .dept-stats-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: #4f46e5;
+            border-radius: 2px;
+        }
+        .dept-filter-select {
+            padding: 8px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #374151;
+            outline: none;
+            cursor: pointer;
+            background: #fff;
+            min-width: 180px;
+        }
+        .dept-filter-select:focus {
+            border-color: #4f46e5;
+        }
+        .dept-stats-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .dept-summary-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .dept-summary-item {
+            background: #f9fafb;
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+        }
+        .dept-summary-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 6px;
+        }
+        .dept-summary-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1f2937;
+        }
+        .dept-stat-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .dept-stat-bar:last-child { border-bottom: none; }
+        .dept-stat-rank {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .dept-stat-rank.top1 { background: #fef3c7; color: #92400e; }
+        .dept-stat-rank.top2 { background: #e5e7eb; color: #6b7280; }
+        .dept-stat-rank.top3 { background: #fed7aa; color: #9a3412; }
+        .dept-stat-rank.normal { background: #f3f4f6; color: #9ca3af; }
+        .dept-stat-info { flex: 1; min-width: 0; }
+        .dept-stat-name { font-size: 14px; font-weight: 500; color: #1f2937; margin-bottom: 2px; }
+        .dept-stat-meta { font-size: 12px; color: #9ca3af; }
+        .dept-stat-score { font-size: 14px; font-weight: 600; color: #4f46e5; white-space: nowrap; }
+        .dept-stat-pass { font-size: 13px; font-weight: 500; white-space: nowrap; }
+        .dept-stat-pbar { width: 80px; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+        .dept-stat-pbar-fill { height: 100%; background: #4f46e5; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+                        <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="sidebar-brand-text">考试系统</div>
+                    <div class="sidebar-brand-sub">管理后台</div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="sidebar-section-label">主要功能</div>
+                <a href="admin-dashboard.html" class="sidebar-link active">${ICONS.dashboard} 数据看板</a>
+                <a href="admin-questions.html" class="sidebar-link">${ICONS.question} 题库管理</a>
+                <a href="admin-exams.html" class="sidebar-link">${ICONS.exam} 考试管理</a>
+                <a href="admin-statistics.html" class="sidebar-link">${ICONS.chart} 成绩统计</a>
+                <a href="admin-users.html" class="sidebar-link">${ICONS.users} 人员管理</a>
+                <a href="admin-review.html" class="sidebar-link">${ICONS.fileCheck} 阅卷中心</a>
+                <div class="sidebar-section-label">系统</div>
+                <a href="admin-settings.html" class="sidebar-link">${ICONS.settings} 系统设置</a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="index.html" class="sidebar-link" style="color:#ef4444;">
+                    ${ICONS.logout} 退出登录
+                </a>
+            </div>
+        </aside>
+
+        <div class="main-area">
+            <header class="top-bar">
+                <div class="top-bar-title">数据看板</div>
+                <div class="top-bar-right">
+                    <div class="icon-btn" onclick="Utils.toast('暂无新通知', 'info')">
+                        ${ICONS.bell}
+                        <div class="notification-dot"></div>
+                    </div>
+                    <div class="admin-user">
+                        <div class="admin-avatar" id="topbar-avatar">管</div>
+                        <div>
+                            <div class="admin-name" id="topbar-name">管理员</div>
+                            <div class="admin-role" id="topbar-role">管理员</div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area fade-in">
+                <div class="stats-grid">
+                    <div class="stat-card stat-card-purple">
+                        <div class="stat-card-icon">${ICONS.question}</div>
+                        <div class="stat-card-title">题库总数</div>
+                        <div class="stat-card-value" id="stat-questions">0</div>
+                        <div class="stat-card-trend" id="stat-questions-trend" style="color:#6b7280;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                            动态统计
+                        </div>
+                    </div>
+                    <div class="stat-card stat-card-blue">
+                        <div class="stat-card-icon">${ICONS.users}</div>
+                        <div class="stat-card-title">今日考试人数</div>
+                        <div class="stat-card-value" id="stat-today-examinees">0</div>
+                        <div class="stat-card-trend" id="stat-today-trend" style="color:#6b7280;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                            基于实际交卷
+                        </div>
+                    </div>
+                    <div class="stat-card stat-card-green">
+                        <div class="stat-card-icon">${ICONS.trophy}</div>
+                        <div class="stat-card-title">通过率</div>
+                        <div class="stat-card-value" id="stat-pass-rate">0%</div>
+                        <div class="stat-card-trend" id="stat-pass-trend" style="color:#6b7280;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                            基于实际成绩
+                        </div>
+                    </div>
+                    <div class="stat-card stat-card-orange">
+                        <div class="stat-card-icon">${ICONS.chart}</div>
+                        <div class="stat-card-title">平均分</div>
+                        <div class="stat-card-value" id="stat-avg-score">0</div>
+                        <div class="stat-card-trend" id="stat-avg-trend" style="color:#6b7280;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                            基于实际成绩
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quick-actions">
+                    <div class="quick-action-card" onclick="window.location.href='admin-exams.html'">
+                        <div class="qa-icon" style="background:#eef2ff;color:#4f46e5;">${ICONS.plus}</div>
+                        <div>
+                            <div class="qa-text-title">新建考试</div>
+                            <div class="qa-text-desc">创建一场新的考试</div>
+                        </div>
+                    </div>
+                    <div class="quick-action-card" onclick="window.location.href='admin-questions.html'">
+                        <div class="qa-icon" style="background:#dbeafe;color:#3b82f6;">${ICONS.upload}</div>
+                        <div>
+                            <div class="qa-text-title">导入题目</div>
+                            <div class="qa-text-desc">Excel/CSV 批量导入</div>
+                        </div>
+                    </div>
+                    <div class="quick-action-card" onclick="window.location.href='admin-statistics.html'">
+                        <div class="qa-icon" style="background:#dcfce7;color:#10b981;">${ICONS.chart}</div>
+                        <div>
+                            <div class="qa-text-title">查看成绩</div>
+                            <div class="qa-text-desc">成绩统计与分析</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 部门成绩概览 -->
+                <div class="dept-stats-section">
+                    <div class="dept-stats-header">
+                        <div class="dept-stats-title">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                            部门成绩概览
+                        </div>
+                        <select class="dept-filter-select" id="dept-filter" onchange="renderDeptStats()">
+                            <option value="all">全部部门</option>
+                        </select>
+                    </div>
+                    <div class="dept-stats-card">
+                        <div class="dept-summary-cards" id="dept-summary"></div>
+                        <div style="border-top:1px solid #f3f4f6;padding-top:16px;">
+                            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:12px;">部门排名</div>
+                            <div id="dept-ranking"></div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="recent-section">
+                    <div class="panel-card">
+                        <div class="panel-title">
+                            ${ICONS.exam}
+                            最近考试
+                        </div>
+                        <div id="recent-exams"></div>
+                    </div>
+                    <div class="panel-card">
+                        <div class="panel-title">
+                            ${ICONS.bell}
+                           考试动态
+                        </div>
+                        <div id="exam-notices"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        (function(){var u=Utils.getLocal('current_user');if(u&&u.real_name){document.getElementById('topbar-name').textContent=u.real_name;document.getElementById('topbar-avatar').textContent=u.real_name.charAt(0);var r=u.department?u.department+' · ':'',s=u.role==='admin'?'管理员':(u.role||'');document.getElementById('topbar-role').textContent=r+s;}})();
+    </script>
+    <script>
+        // 动态计算看板统计数据
+        function renderDashboardStats() {
+            // 题库总数
+            const questionStats = ExamSystem.QuestionBankManager.getStats();
+            document.getElementById('stat-questions').textContent = questionStats.total;
+            document.getElementById('stat-questions-trend').innerHTML = `
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+                公共 ${questionStats.public} 题 / 项目 ${questionStats.project} 题
+            `;
+
+            // 获取所有真实考试结果
+            const allResults = ExamSystem.ResultManager.getResults();
+            const today = new Date().toISOString().slice(0, 10);
+
+            // 今日考试人数（今日交卷的人数）
+            const todayExaminees = allResults.filter(r =>
+                (r.submittedAt || '').slice(0, 10) === today
+            ).length;
+            document.getElementById('stat-today-examinees').textContent = todayExaminees;
+            document.getElementById('stat-today-trend').innerHTML = `
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+                今日交卷 ${todayExaminees} 份
+            `;
+
+            // 通过率和平均分（基于已阅卷完成的结果）
+            const completedResults = allResults.filter(r => r.reviewCompleted !== false);
+            if (completedResults.length > 0) {
+                const scores = completedResults.map(r => r.score || 0);
+                const passed = completedResults.filter(r => r.passed === true);
+                const avgScore = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
+                const passRate = Math.round((passed.length / completedResults.length) * 100);
+
+                document.getElementById('stat-pass-rate').textContent = passRate + '%';
+                document.getElementById('stat-avg-score').textContent = avgScore;
+                document.getElementById('stat-pass-trend').innerHTML = `
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+                    ${passed.length}/${completedResults.length} 人通过
+                `;
+                document.getElementById('stat-avg-trend').innerHTML = `
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+                    基于 ${completedResults.length} 份已阅卷试卷
+                `;
+            } else {
+                document.getElementById('stat-pass-rate').textContent = '—';
+                document.getElementById('stat-avg-score').textContent = '—';
+                document.getElementById('stat-pass-trend').innerHTML = `
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                    暂无已阅卷成绩
+                `;
+                document.getElementById('stat-avg-trend').innerHTML = `
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                    暂无已阅卷成绩
+                `;
+            }
+        }
+
+        // 渲染考试动态（从真实考试数据生成）
+        function renderExamNotices() {
+            const container = document.getElementById('exam-notices');
+            const exams = ExamSystem.ExamManager.getExams().filter(e => e.status !== 'deleted').slice(0, 5);
+
+            if (exams.length === 0) {
+                container.innerHTML = '<div class="notice-item"><div class="notice-title" style="color:#9ca3af;">暂无考试动态</div></div>';
+                return;
+            }
+
+            let html = '';
+            exams.forEach(exam => {
+                const results = ExamSystem.ResultManager.getResultsByExam(exam.id);
+                const completed = results.length;
+                const pendingReview = results.filter(r => !r.reviewCompleted).length;
+                let timeText = exam.start_time || '未设置';
+                let descText = '';
+
+                if (exam.status === 'published') {
+                    descText = `已发布 · 已交卷 ${completed} 人${pendingReview > 0 ? ' · 待阅卷 ' + pendingReview + ' 人' : ''}`;
+                } else if (exam.status === 'draft') {
+                    descText = `草稿 · 预计 ${exam.question_count || 0} 道题`;
+                } else if (exam.status === 'ended') {
+                    descText = `已结束 · ${completed} 人参加${pendingReview > 0 ? ' · 待阅卷 ' + pendingReview + ' 人' : ' · 已全部阅卷'}`;
+                } else {
+                    descText = `${completed} 人参加`;
+                }
+
+                html += `
+                    <div class="notice-item">
+                        <div class="notice-title">${Utils.escapeHtml(exam.title)}</div>
+                        <div class="notice-time">${Utils.escapeHtml(timeText)} · ${Utils.escapeHtml(descText)}</div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderRecentExams() {
+            const container = document.getElementById('recent-exams');
+            const exams = ExamSystem.ExamManager.getExams().filter(e => e.status !== 'deleted').slice(0, 5);
+            let html = '';
+            exams.forEach(exam => {
+                const results = ExamSystem.ResultManager.getResultsByExam(exam.id);
+                const completed = results.length;
+                const progress = exam.participants > 0 ? Math.round((completed / exam.participants) * 100) : 0;
+                const statusBadge = exam.status === 'published' ? 'badge-info' : exam.status === 'ended' ? 'badge-gray' : 'badge-gray';
+                html += `
+                    <div class="recent-exam-item">
+                        <div class="recent-exam-info">
+                            <div class="recent-exam-title">${Utils.escapeHtml(exam.title)}</div>
+                            <div class="recent-exam-meta">${completed} / ${exam.participants || 0} 人已完成</div>
+                            ${exam.participants > 0 ? `<div class="progress-mini"><div class="progress-mini-fill" style="width:${progress}%"></div></div>` : ''}
+                        </div>
+                        <span class="badge ${statusBadge}">${Utils.examStatusText(exam.status)}</span>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        // ========== 部门成绩概览 ==========
+        function renderDeptStats() {
+            const depts = ExamSystem.DepartmentManager.getDepartments();
+            const deptMap = {};
+            depts.forEach(d => { deptMap[d.id] = d; });
+
+            // 填充部门筛选下拉框
+            const filterSelect = document.getElementById('dept-filter');
+            const currentFilter = filterSelect.value;
+            filterSelect.innerHTML = '<option value="all">全部部门</option>';
+            depts.forEach(d => {
+                filterSelect.innerHTML += `<option value="${d.id}" ${String(currentFilter) === String(d.id) ? 'selected' : ''}>${Utils.escapeHtml(d.name)}</option>`;
+            });
+
+            // 获取所有考生账号，按部门分组
+            const accounts = ExamSystem.AccountManager.getExamineeAccounts();
+            const deptAccounts = {}; // deptId -> [accounts]
+            const noDeptAccounts = [];
+
+            accounts.forEach(a => {
+                if (a.departmentId && deptMap[a.departmentId]) {
+                    const deptId = a.departmentId;
+                    if (!deptAccounts[deptId]) deptAccounts[deptId] = [];
+                    deptAccounts[deptId].push(a);
+                } else {
+                    noDeptAccounts.push(a);
+                }
+            });
+
+            // 获取所有考试结果
+            const allResults = ExamSystem.ResultManager.getResults();
+
+            // 为每个部门计算统计
+            function calcDeptStats(deptId, accts) {
+                if (!accts || accts.length === 0) {
+                    return { deptId, name: deptId ? (deptMap[deptId] ? deptMap[deptId].name : '未知') : '未分配部门', level: 0, accountCount: 0, participantCount: 0, reviewedCount: 0, avgScore: 0, passRate: 0 };
+                }
+                const usernames = new Set(accts.map(a => a.username));
+                const deptResults = allResults.filter(r => usernames.has(r.userId));
+                const userIds = new Set(deptResults.map(r => r.userId));
+                const reviewedResults = deptResults.filter(r => r.reviewCompleted !== false);
+                const scores = reviewedResults.map(r => r.score || 0);
+                const passed = reviewedResults.filter(r => r.passed === true);
+
+                return {
+                    deptId,
+                    name: deptId ? (deptMap[deptId] ? deptMap[deptId].name : '未知') : '未分配部门',
+                    level: deptId ? (deptMap[deptId] ? deptMap[deptId].level : 0) : 0,
+                    accountCount: accts.length,
+                    participantCount: userIds.size,
+                    reviewedCount: reviewedResults.length,
+                    avgScore: reviewedResults.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length) : 0,
+                    passRate: reviewedResults.length > 0 ? Math.round((passed.length / reviewedResults.length) * 100) : 0
+                };
+            }
+
+            // 筛选逻辑
+            let displayDepts = [];
+            if (currentFilter === 'all') {
+                // 显示所有部门 + 未分配
+                depts.forEach(d => {
+                    displayDepts.push(calcDeptStats(d.id, deptAccounts[d.id] || []));
+                });
+                if (noDeptAccounts.length > 0) {
+                    displayDepts.push(calcDeptStats(null, noDeptAccounts));
+                }
+            } else {
+                const filterId = parseInt(currentFilter, 10);
+                const directAccounts = deptAccounts[filterId] || [];
+                // 包含子部门
+                const subIds = ExamSystem.DepartmentManager.getSubIds(filterId);
+                let allAccts = [...directAccounts];
+                subIds.forEach(sid => {
+                    if (deptAccounts[sid]) allAccts = allAccts.concat(deptAccounts[sid]);
+                });
+                displayDepts.push(calcDeptStats(filterId, allAccts));
+            }
+
+            // 按平均分排序
+            displayDepts.sort((a, b) => b.avgScore - a.avgScore);
+
+            // 汇总
+            const totalAccounts = displayDepts.reduce((s, d) => s + d.accountCount, 0);
+            const totalParticipants = displayDepts.reduce((s, d) => s + d.participantCount, 0);
+            const totalReviewed = displayDepts.reduce((s, d) => s + d.reviewedCount, 0);
+            const totalAvg = displayDepts.length > 0 ? (displayDepts.reduce((s, d) => s + d.avgScore, 0) / displayDepts.length) : 0;
+
+            // 渲染汇总卡片
+            const summaryContainer = document.getElementById('dept-summary');
+            summaryContainer.innerHTML = `
+                <div class="dept-summary-item">
+                    <div class="dept-summary-label">覆盖部门</div>
+                    <div class="dept-summary-value">${displayDepts.length}</div>
+                </div>
+                <div class="dept-summary-item">
+                    <div class="dept-summary-label">部门总人数</div>
+                    <div class="dept-summary-value">${totalAccounts}</div>
+                </div>
+                <div class="dept-summary-item">
+                    <div class="dept-summary-label">参与考试</div>
+                    <div class="dept-summary-value">${totalParticipants}</div>
+                </div>
+                <div class="dept-summary-item">
+                    <div class="dept-summary-label">整体均分</div>
+                    <div class="dept-summary-value">${displayDepts.length > 0 ? totalAvg.toFixed(1) : '—'}</div>
+                </div>
+            `;
+
+            // 渲染排名
+            const rankingContainer = document.getElementById('dept-ranking');
+            if (displayDepts.length === 0) {
+                rankingContainer.innerHTML = '<div style="text-align:center;padding:24px;color:#9ca3af;font-size:13px;">暂无部门数据，请先在系统设置中配置部门架构</div>';
+                return;
+            }
+
+            let rankHtml = '';
+            displayDepts.forEach((d, idx) => {
+                const rankClass = idx === 0 ? 'top1' : idx === 1 ? 'top2' : idx === 2 ? 'top3' : 'normal';
+                const rankNum = idx + 1;
+                const passColor = d.passRate >= 80 ? '#16a34a' : d.passRate >= 60 ? '#d97706' : '#ef4444';
+                const levelLabel = d.level === 1 ? '一级' : d.level === 2 ? '二级' : d.level === 3 ? '三级' : '—';
+                rankHtml += `
+                    <div class="dept-stat-bar">
+                        <div class="dept-stat-rank ${rankClass}">${rankNum}</div>
+                        <div class="dept-stat-info">
+                            <div class="dept-stat-name">${Utils.escapeHtml(d.name)}</div>
+                            <div class="dept-stat-meta">${levelLabel}部门 · ${d.participantCount}/${d.accountCount} 人参与 · 已阅卷 ${d.reviewedCount} 份</div>
+                        </div>
+                        <div class="dept-stat-pbar">
+                            <div class="dept-stat-pbar-fill" style="width:${d.passRate}%"></div>
+                        </div>
+                        <div class="dept-stat-score" style="font-size:13px;font-weight:500;">${d.reviewedCount > 0 ? d.avgScore.toFixed(1) : '—'} 分</div>
+                        <div class="dept-stat-pass" style="width:56px;text-align:right;color:${passColor};">${d.reviewedCount > 0 ? d.passRate + '%' : '—'}</div>
+                    </div>
+                `;
+            });
+            rankingContainer.innerHTML = rankHtml;
+        }
+
+        renderDashboardStats();
+        renderExamNotices();
+        renderRecentExams();
+        renderDeptStats();
+    </script>
+</body>
+</html>

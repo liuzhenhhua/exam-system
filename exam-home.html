@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>考试首页 - 企业培训考试系统</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        .top-nav {
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            padding: 0 32px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #1f2937;
+        }
+        .nav-brand-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 14px;
+            background: #f3f4f6;
+            border-radius: 30px;
+        }
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .user-name { font-size: 14px; font-weight: 500; color: #374151; }
+        .logout-btn {
+            color: #6b7280;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .logout-btn:hover { color: #ef4444; }
+
+        /* Tab导航 */
+        .tab-nav {
+            display: flex;
+            gap: 4px;
+            background: #fff;
+            border-radius: 12px;
+            padding: 6px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .tab-item {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 500;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            background: transparent;
+        }
+        .tab-item:hover { background: #f3f4f6; color: #374151; }
+        .tab-item.active {
+            background: #4f46e5;
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(79,70,229,0.3);
+        }
+
+        .main-container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+        .welcome-section {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            border-radius: 16px;
+            padding: 32px;
+            color: #fff;
+            margin-bottom: 32px;
+            position: relative;
+            overflow: hidden;
+        }
+        .welcome-section::after {
+            content: '';
+            position: absolute;
+            top: -50px;
+            right: -50px;
+            width: 200px;
+            height: 200px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+        }
+        .welcome-section::before {
+            content: '';
+            position: absolute;
+            bottom: -30px;
+            right: 80px;
+            width: 100px;
+            height: 100px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 50%;
+        }
+        .welcome-text {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 1;
+        }
+        .welcome-sub {
+            font-size: 14px;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: #4f46e5;
+            border-radius: 2px;
+        }
+        .exam-card {
+            background: #fff;
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+        }
+        .exam-card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        .exam-card-left { flex: 1; }
+        .exam-title {
+            font-size: 17px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 6px;
+        }
+        .exam-desc {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 12px;
+        }
+        .exam-meta {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .exam-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: #6b7280;
+        }
+        .exam-meta-item svg { color: #9ca3af; }
+        .exam-card-right {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            min-width: 120px;
+        }
+        .exam-score-info {
+            font-size: 12px;
+            color: #9ca3af;
+            text-align: center;
+        }
+        .exam-score-info strong {
+            color: #4f46e5;
+            font-size: 20px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #9ca3af;
+        }
+        .empty-state svg { margin-bottom: 16px; }
+
+        /* 规则弹窗 */
+        .rules-modal {
+            padding: 32px;
+        }
+        .rules-modal h3 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .rules-list {
+            background: #f9fafb;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        .rules-list li {
+            list-style: none;
+            padding: 8px 0;
+            font-size: 14px;
+            color: #4b5563;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .rules-list li::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: #4f46e5;
+            border-radius: 50%;
+            margin-top: 7px;
+            min-width: 6px;
+        }
+        .rules-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #374151;
+            cursor: pointer;
+        }
+        .rules-checkbox input { accent-color: #4f46e5; width: 16px; height: 16px; }
+        .rules-btns {
+            display: flex;
+            gap: 12px;
+        }
+        .rules-btns button { flex: 1; }
+
+        /* 成绩查询相关 */
+        .score-card {
+            background: #fff;
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            transition: all 0.2s;
+        }
+        .score-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .score-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .score-card-title { font-size: 16px; font-weight: 600; color: #1f2937; }
+        .score-stats {
+            display: flex;
+            gap: 32px;
+            padding: 16px 0;
+            border-top: 1px solid #f3f4f6;
+            border-bottom: 1px solid #f3f4f6;
+            margin-bottom: 16px;
+        }
+        .score-stat-item { text-align: center; }
+        .score-stat-value { font-size: 22px; font-weight: 700; color: #1f2937; }
+        .score-stat-value.passed { color: #16a34a; }
+        .score-stat-value.failed { color: #ef4444; }
+        .score-stat-label { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+        .export-score-btn {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 500;
+            border: 1px solid #bfdbfe; background: #fff; color: #2563eb; cursor: pointer; transition: all 0.2s;
+        }
+        .export-score-btn:hover { background: #dbeafe; }
+    </style>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-brand">
+            <div class="nav-brand-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+                    <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+                </svg>
+            </div>
+            <span>企业培训考试系统</span>
+        </div>
+        <div class="nav-right">
+            <div class="user-info">
+                <div class="user-avatar" id="user-avatar">张</div>
+                <span class="user-name" id="user-name">张明</span>
+            </div>
+            <div class="logout-btn" onclick="logout()" title="退出登录">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-container fade-in">
+        <div class="welcome-section">
+            <div class="welcome-text" id="welcome-text">你好，张明 👋</div>
+            <div class="welcome-sub" id="welcome-sub">欢迎参加企业培训考试，祝你取得好成绩！</div>
+        </div>
+
+        <!-- Tab导航 -->
+        <div class="tab-nav">
+            <button class="tab-item active" id="tab-exam" onclick="switchTab('exam')">
+                ${ICONS.exam}
+                考试题目
+            </button>
+            <button class="tab-item" id="tab-score" onclick="switchTab('score')">
+                ${ICONS.trophy}
+                成绩查询
+            </button>
+        </div>
+
+        <!-- 考试列表 -->
+        <div id="exam-tab-content">
+            <div class="section-title">待参加的考试</div>
+            <div id="exam-list-container"></div>
+        </div>
+
+        <!-- 成绩查询 -->
+        <div id="score-tab-content" style="display:none;">
+            <div class="section-title">我的考试成绩</div>
+            <div id="score-list-container"></div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        const user = Utils.getLocal('current_user') || MOCK_DATA.currentUser;
+
+        // 获取当前用户参与的项目
+        const examineeAccount = ExamSystem.AccountManager.getExamineeAccounts().find(a => a.username === user.username);
+        const userProjectIds = examineeAccount ? (examineeAccount.project_ids || []) : [];
+
+        // 渲染用户信息
+        document.getElementById('user-avatar').textContent = user.real_name.charAt(0);
+        document.getElementById('user-name').textContent = user.real_name;
+        document.getElementById('welcome-text').textContent = `你好，${user.real_name} 👋`;
+
+        // 如果用户有参与项目，在欢迎区显示
+        if (userProjectIds.length > 0) {
+            const projectNames = userProjectIds.map(pid => ExamSystem.ProjectManager.projectName(pid)).join('、');
+            document.getElementById('welcome-sub').textContent = `你参与的项目：${projectNames}，祝你取得好成绩！`;
+        }
+
+        function logout() {
+            Utils.confirm('确定要退出登录吗？', () => {
+                localStorage.removeItem('current_user');
+                window.location.href = PAGES.login;
+            });
+        }
+
+        // Tab切换
+        function switchTab(tab) {
+            document.getElementById('tab-exam').classList.toggle('active', tab === 'exam');
+            document.getElementById('tab-score').classList.toggle('active', tab === 'score');
+            document.getElementById('exam-tab-content').style.display = tab === 'exam' ? 'block' : 'none';
+            document.getElementById('score-tab-content').style.display = tab === 'score' ? 'block' : 'none';
+            if (tab === 'score') renderScoreList();
+        }
+
+        // 渲染成绩查询列表
+        function renderScoreList() {
+            const container = document.getElementById('score-list-container');
+
+            // 从 ResultManager 获取当前用户的所有真实考试结果
+            const myResults = ExamSystem.ResultManager.getResultsByExaminee(user.username);
+
+            if (myResults.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        <div style="font-size:16px;font-weight:500;margin-bottom:8px;">暂无考试成绩</div>
+                        <div style="font-size:14px;">完成考试后可在此查看成绩</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // 按交卷时间倒序排列
+            myResults.sort((a, b) => (b.submittedAt || '').localeCompare(a.submittedAt || ''));
+
+            let html = '';
+            myResults.forEach(r => {
+                const reviewCompleted = r.reviewCompleted !== false;
+                const displayScore = ExamSystem.ResultManager.getDisplayScore(r);
+                const hasManualReview = r.manualReviewCount > 0;
+                const passed = reviewCompleted ? r.passed : null;
+                const passedClass = passed === true ? 'passed' : 'failed';
+                const statusBadge = !reviewCompleted
+                    ? '<span class="badge badge-warning">待阅卷</span>'
+                    : (passed ? '<span class="badge badge-success">已通过</span>' : '<span class="badge badge-danger">未通过</span>');
+
+                html += `
+                    <div class="score-card fade-in">
+                        <div class="score-card-header">
+                            <div class="score-card-title">${Utils.escapeHtml(r.examTitle)}</div>
+                            ${statusBadge}
+                        </div>
+                        <div class="score-stats">
+                            <div class="score-stat-item">
+                                <div class="score-stat-value ${passedClass}">${displayScore}</div>
+                                <div class="score-stat-label">得分 / ${r.totalScore || 100}分${!reviewCompleted ? '（客观题）' : ''}</div>
+                            </div>
+                            <div class="score-stat-item">
+                                <div class="score-stat-value">${r.correctCount || 0}</div>
+                                <div class="score-stat-label">答对题数</div>
+                            </div>
+                            <div class="score-stat-item">
+                                <div class="score-stat-value">${r.wrongCount || 0}</div>
+                                <div class="score-stat-label">答错题数</div>
+                            </div>
+                            <div class="score-stat-item">
+                                <div class="score-stat-value">${r.correctRate || 0}%</div>
+                                <div class="score-stat-label">正确率</div>
+                            </div>
+                            <div class="score-stat-item">
+                                <div class="score-stat-value">${r.passScore || 60}</div>
+                                <div class="score-stat-label">及格线</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn-secondary" style="font-size:13px;padding:8px 16px;" onclick="viewResult(${r.examId})">
+                                ${ICONS.eye}
+                                查看答题详情
+                            </button>
+                            ${reviewCompleted ? `
+                            <button class="export-score-btn" onclick="exportMyScoreById(${r.id})">
+                                ${ICONS.download}
+                                导出成绩单
+                            </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // 导出个人成绩单
+        function exportMyScore() {
+            const result = Utils.getLocal('exam_result');
+            if (!result) {
+                Utils.toast('暂无成绩可导出', 'warning');
+                return;
+            }
+            ExportUtil.exportSingleScore(result, result.examTitle, {
+                name: user.real_name,
+                employeeId: user.employee_id || user.username,
+                department: user.department || ''
+            });
+            Utils.toast('成绩单已导出', 'success');
+        }
+
+        // 按结果ID导出成绩单
+        function exportMyScoreById(resultId) {
+            const result = ExamSystem.ResultManager.getResults().find(r => r.id === resultId);
+            if (!result) {
+                Utils.toast('暂无成绩可导出', 'warning');
+                return;
+            }
+            ExportUtil.exportSingleScore(result, result.examTitle, {
+                name: user.real_name,
+                employeeId: user.employee_id || user.username,
+                department: user.department || ''
+            });
+            Utils.toast('成绩单已导出', 'success');
+        }
+
+        function renderExamList() {
+            const container = document.getElementById('exam-list-container');
+
+            // 获取考生可见的考试（公共考试 + 参与项目的考试）
+            const adminExams = ExamSystem.ExamManager.getExamsForExaminee(userProjectIds);
+
+            // 转换格式以兼容现有渲染逻辑
+            const exams = adminExams.map(e => ({
+                id: e.id,
+                title: e.title,
+                description: e.description || '',
+                start_time: e.start_time,
+                end_time: e.end_time,
+                duration_minutes: e.duration,
+                status: e.status === 'published' ? 'available' : (e.status === 'draft' ? 'upcoming' : 'completed'),
+                question_count: e.question_count,
+                total_score: e.total_score || 100,
+                pass_score: e.pass_score || 60,
+                scope: e.scope || 'public',
+                project_id: e.project_id
+            }));
+
+            // 也从 ResultManager 获取已完成的考试（已提交成绩的）
+            const myResults = ExamSystem.ResultManager.getResultsByExaminee(user.username);
+            const completedExamIds = myResults.map(r => parseInt(r.examId));
+            // 将已考过的考试标记为已完成
+            completedExamIds.forEach(eid => {
+                const existing = exams.find(e => e.id === eid);
+                if (existing && existing.status !== 'completed') {
+                    existing.status = 'completed';
+                    const myResult = myResults.find(r => parseInt(r.examId) === eid);
+                    if (myResult) {
+                        existing.my_score = ExamSystem.ResultManager.getDisplayScore(myResult);
+                        existing.total_score = myResult.totalScore || 100;
+                    }
+                }
+            });
+
+            let html = '';
+
+            // 待参加 & 即将开始
+            const pendingExams = exams.filter(e => e.status === 'available' || e.status === 'upcoming');
+            const completedExams = exams.filter(e => e.status === 'completed');
+
+            if (pendingExams.length > 0) {
+                pendingExams.forEach(exam => {
+                    const isAvailable = exam.status === 'available';
+                    const scopeBadge = exam.scope === 'project'
+                        ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:12px;background:#fef3c7;color:#92400e;margin-bottom:6px;">${ICONS.building}${Utils.escapeHtml(ExamSystem.ProjectManager.projectName(exam.project_id))}</span>`
+                        : `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:12px;background:#e0e7ff;color:#3730a3;margin-bottom:6px;">公共考试</span>`;
+                    html += `
+                        <div class="exam-card fade-in">
+                            <div class="exam-card-left">
+                                ${scopeBadge}
+                                <div class="exam-title">${Utils.escapeHtml(exam.title)}</div>
+                                <div class="exam-desc">${Utils.escapeHtml(exam.description)}</div>
+                                <div class="exam-meta">
+                                    <div class="exam-meta-item">
+                                        ${ICONS.clock}
+                                        <span>时长 ${exam.duration_minutes} 分钟</span>
+                                    </div>
+                                    <div class="exam-meta-item">
+                                        ${ICONS.question}
+                                        <span>${exam.question_count} 道题</span>
+                                    </div>
+                                    <div class="exam-meta-item">
+                                        ${ICONS.book}
+                                        <span>满分 ${exam.total_score} 分</span>
+                                    </div>
+                                    <div class="exam-meta-item">
+                                        ${ICONS.clock}
+                                        <span>${exam.start_time} ~ ${exam.end_time}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="exam-card-right">
+                                <span class="badge ${Utils.examStatusBadge(exam.status)}">${Utils.examStatusText(exam.status)}</span>
+                                ${isAvailable
+                                    ? `<button class="btn-primary" onclick="showRules(${exam.id})">开始考试</button>`
+                                    : `<button class="btn-ghost" disabled style="opacity:0.5;cursor:not-allowed">未开始</button>`
+                                }
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            if (completedExams.length > 0) {
+                html += `<div class="section-title" style="margin-top: 32px;">已完成考试</div>`;
+                completedExams.forEach(exam => {
+                    const passed = exam.my_score >= exam.pass_score;
+                    html += `
+                        <div class="exam-card fade-in" style="opacity: 0.85;">
+                            <div class="exam-card-left">
+                                <div class="exam-title">${Utils.escapeHtml(exam.title)}</div>
+                                <div class="exam-meta">
+                                    <div class="exam-meta-item">
+                                        ${ICONS.clock}
+                                        <span>时长 ${exam.duration_minutes} 分钟</span>
+                                    </div>
+                                    <div class="exam-meta-item">
+                                        ${ICONS.trophy}
+                                        <span>排名 第 ${exam.my_rank} 名</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="exam-card-right">
+                                <div class="exam-score-info">
+                                    <strong>${exam.my_score}</strong> / ${exam.total_score} 分
+                                </div>
+                                <span class="badge ${passed ? 'badge-success' : 'badge-danger'}">${passed ? '已通过' : '未通过'}</span>
+                                <button class="btn-ghost" onclick="viewResult(${exam.id})" style="font-size:13px;padding:6px 14px;">查看成绩</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            if (html === '') {
+                html = `
+                    <div class="empty-state">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        <div style="font-size:16px;font-weight:500;margin-bottom:8px;">暂无考试安排</div>
+                        <div style="font-size:14px;">请耐心等待管理员发布考试</div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function showRules(examId) {
+            // 从 ExamManager 获取考试信息
+            let exam = ExamSystem.ExamManager.getExam(examId);
+            if (!exam) {
+                Utils.toast('考试不存在', 'error');
+                return;
+            }
+
+            const duration = exam.duration || exam.duration_minutes || 60;
+            const questionCount = exam.question_count || 0;
+            const totalScore = exam.total_score || 100;
+            const passScore = exam.pass_score || 60;
+
+            const overlay = Utils.showModal(`
+                <div class="rules-modal">
+                    <h3>考试规则说明</h3>
+                    <div style="text-align:center;margin-bottom:20px;">
+                        <div style="font-size:18px;font-weight:600;color:#1f2937;">${Utils.escapeHtml(exam.title)}</div>
+                        ${exam.scope === 'project' ? `<div style="font-size:13px;color:#92400e;margin-top:4px;">${ICONS.building} ${Utils.escapeHtml(ExamSystem.ProjectManager.projectName(exam.project_id))}</div>` : ''}
+                    </div>
+                    <div class="rules-list">
+                        <ul>
+                            <li>本次考试时长为 <strong>${duration} 分钟</strong>，共 <strong>${questionCount} 道题</strong>，满分 <strong>${totalScore} 分</strong>。</li>
+                            <li>及格线为 <strong>${passScore} 分</strong>，达到及格线即视为通过。</li>
+                            <li>考试开始后，系统将自动计时，时间结束将自动交卷。</li>
+                            <li>考试过程中禁止切换页面或离开考试窗口，切屏超过 <strong>3 次</strong> 将强制交卷。</li>
+                            <li>可点击题号导航快速跳转题目，标记不确定的题目方便回顾。</li>
+                            <li>答题进度每 30 秒自动保存，如遇断网可继续作答。</li>
+                            <li>交卷后将立即显示考试成绩及答题详情。</li>
+                        </ul>
+                    </div>
+                    <label class="rules-checkbox">
+                        <input type="checkbox" id="agree-rules">
+                        <span>我已仔细阅读并理解以上考试规则</span>
+                    </label>
+                    <div class="rules-btns">
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" id="start-exam-btn" disabled style="opacity:0.5;cursor:not-allowed;">开始答题</button>
+                    </div>
+                </div>
+            `);
+
+            const checkbox = overlay.querySelector('#agree-rules');
+            const startBtn = overlay.querySelector('#start-exam-btn');
+
+            checkbox.addEventListener('change', function() {
+                if (this.checked) {
+                    startBtn.disabled = false;
+                    startBtn.style.opacity = '1';
+                    startBtn.style.cursor = 'pointer';
+                } else {
+                    startBtn.disabled = true;
+                    startBtn.style.opacity = '0.5';
+                    startBtn.style.cursor = 'not-allowed';
+                }
+            });
+
+            startBtn.addEventListener('click', function() {
+                if (!this.disabled) {
+                    Utils.saveLocal('current_exam', exam);
+                    // 开始新考试时清除旧答题进度，避免 currentIdx 越界
+                    Utils.removeLocal('exam_answers');
+                    window.location.href = `exam-take.html?id=${examId}`;
+                }
+            });
+        }
+
+        function viewResult(examId) {
+            window.location.href = `exam-result.html?id=${examId}`;
+        }
+
+        renderExamList();
+    </script>
+</body>
+</html>

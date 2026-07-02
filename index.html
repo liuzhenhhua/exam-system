@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>企业培训考试系统 - 登录</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .bg-shapes {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .bg-shape {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+        }
+        .bg-shape:nth-child(1) { width: 400px; height: 400px; top: -100px; right: -100px; }
+        .bg-shape:nth-child(2) { width: 300px; height: 300px; bottom: -80px; left: -80px; }
+        .bg-shape:nth-child(3) { width: 200px; height: 200px; top: 40%; left: 10%; background: rgba(255,255,255,0.05); }
+        .login-card {
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            padding: 48px 40px;
+            width: 420px;
+            max-width: 90vw;
+            position: relative;
+            z-index: 1;
+            animation: fadeIn 0.6s ease-out;
+        }
+        .logo-area {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+        .logo-icon {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border-radius: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 24px rgba(79,70,229,0.3);
+        }
+        .logo-icon svg { color: #fff; }
+        .system-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+        .system-subtitle {
+            font-size: 13px;
+            color: #9ca3af;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+        .input-wrapper {
+            position: relative;
+        }
+        .input-wrapper .input-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            pointer-events: none;
+        }
+        .input-wrapper .input-field {
+            padding-left: 44px;
+            height: 48px;
+        }
+        .input-wrapper .toggle-pwd {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #9ca3af;
+            transition: color 0.2s;
+        }
+        .input-wrapper .toggle-pwd:hover {
+            color: #6b7280;
+        }
+        .remember-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 28px;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #6b7280;
+            cursor: pointer;
+        }
+        .checkbox-label input {
+            width: 16px;
+            height: 16px;
+            accent-color: #4f46e5;
+            cursor: pointer;
+        }
+        .forgot-link {
+            font-size: 13px;
+            color: #4f46e5;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .forgot-link:hover {
+            color: #4338ca;
+        }
+        .login-btn {
+            width: 100%;
+            height: 48px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .error-msg {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 20px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+        .error-msg.show {
+            display: flex;
+            animation: fadeIn 0.2s;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-shapes">
+        <div class="bg-shape"></div>
+        <div class="bg-shape"></div>
+        <div class="bg-shape"></div>
+    </div>
+
+    <div class="login-card">
+        <div class="logo-area">
+            <div class="logo-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+                    <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+                </svg>
+            </div>
+            <div class="system-title">企业培训考试系统</div>
+            <div class="system-subtitle">Enterprise Training & Exam Platform</div>
+        </div>
+
+        <div class="error-msg" id="error-msg">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span id="error-text">账号或密码错误</span>
+        </div>
+
+        <form id="login-form" onsubmit="return handleLogin(event)">
+            <div class="form-group">
+                <label class="form-label">工号 / 邮箱</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                    </span>
+                    <input type="text" class="input-field" id="username" placeholder="请输入工号或邮箱" autocomplete="username" value="">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">密码</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                            <path d="M7 11V7a5 5 0 0110 0v4"/>
+                        </svg>
+                    </span>
+                    <input type="password" class="input-field" id="password" placeholder="请输入密码" autocomplete="current-password">
+                    <span class="toggle-pwd" id="toggle-pwd" onclick="togglePassword()">
+                        <svg id="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </span>
+                </div>
+            </div>
+
+            <div class="remember-row">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="remember">
+                    <span>记住账号</span>
+                </label>
+                <a href="javascript:void(0)" class="forgot-link" onclick="Utils.toast('请联系管理员重置密码', 'info')">忘记密码？</a>
+            </div>
+
+            <button type="submit" class="btn-primary login-btn" id="login-btn">
+                <span id="btn-text">登 录</span>
+            </button>
+        </form>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        // 页面加载时恢复记住的账号
+        (function init() {
+            const remembered = Utils.getLocal('remembered_account');
+            if (remembered) {
+                document.getElementById('username').value = remembered;
+                document.getElementById('remember').checked = true;
+            }
+        })();
+
+        function togglePassword() {
+            const pwd = document.getElementById('password');
+            const icon = document.getElementById('eye-icon');
+            if (pwd.type === 'password') {
+                pwd.type = 'text';
+                icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+            } else {
+                pwd.type = 'password';
+                icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+            }
+        }
+
+        function showError(msg) {
+            const errorEl = document.getElementById('error-msg');
+            document.getElementById('error-text').textContent = msg;
+            errorEl.classList.add('show');
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const remember = document.getElementById('remember').checked;
+            const btn = document.getElementById('login-btn');
+            const btnText = document.getElementById('btn-text');
+
+            if (!username) {
+                showError('请输入工号或邮箱');
+                return false;
+            }
+            if (!password) {
+                showError('请输入密码');
+                return false;
+            }
+
+            // 模拟登录按钮loading
+            btn.disabled = true;
+            btnText.innerHTML = '<span class="spinner"></span> 登录中...';
+
+            // 记住账号
+            if (remember) {
+                Utils.saveLocal('remembered_account', username);
+            } else {
+                localStorage.removeItem('remembered_account');
+            }
+
+            // 模拟登录请求
+            setTimeout(() => {
+                btn.disabled = false;
+                btnText.textContent = '登 录';
+
+                // 使用动态账号验证
+                const result = ExamSystem.AccountManager.validateLogin(username, password);
+                if (result.success) {
+                    Utils.saveLocal('current_user', result.user);
+                    if (result.user.role === 'admin') {
+                        Utils.toast('登录成功，正在进入管理后台...', 'success');
+                        setTimeout(() => window.location.href = PAGES.adminDashboard, 800);
+                    } else {
+                        Utils.toast('登录成功，正在进入考试系统...', 'success');
+                        setTimeout(() => window.location.href = PAGES.examHome, 800);
+                    }
+                } else {
+                    showError(result.msg);
+                }
+            }, 1000);
+
+            return false;
+        }
+
+        // 回车键提交
+        document.getElementById('password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('login-form').dispatchEvent(new Event('submit'));
+            }
+        });
+    </script>
+</body>
+</html>

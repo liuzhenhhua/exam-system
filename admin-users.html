@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人员管理 - 企业培训考试系统</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        .admin-layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 240px; background: #fff; border-right: 1px solid #e5e7eb; padding: 20px 16px; position: fixed; top: 0; bottom: 0; left: 0; z-index: 100; display: flex; flex-direction: column; }
+        .sidebar-brand { display: flex; align-items: center; gap: 12px; padding: 8px 12px 24px; border-bottom: 1px solid #f3f4f6; margin-bottom: 16px; }
+        .sidebar-brand-icon { width: 36px; height: 36px; background: linear-gradient(135deg, #4f46e5, #7c3aed); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+        .sidebar-brand-text { font-size: 15px; font-weight: 700; color: #1f2937; line-height: 1.3; }
+        .sidebar-brand-sub { font-size: 11px; color: #9ca3af; }
+        .sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .sidebar-section-label { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; padding: 16px 16px 8px; letter-spacing: 0.5px; }
+        .sidebar-footer { padding-top: 16px; border-top: 1px solid #f3f4f6; }
+        .main-area { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .top-bar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0 28px; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+        .top-bar-title { font-size: 18px; font-weight: 600; color: #1f2937; }
+        .top-bar-right { display: flex; align-items: center; gap: 12px; }
+        .admin-user { display: flex; align-items: center; gap: 10px; padding: 4px 12px; border-radius: 30px; background: #f3f4f6; cursor: pointer; }
+        .admin-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
+        .admin-name { font-size: 14px; font-weight: 500; color: #374151; }
+        .admin-role { font-size: 11px; color: #9ca3af; }
+        .content-area { padding: 28px; flex: 1; }
+
+        /* 统计卡片 */
+        .stats-row { display: flex; gap: 16px; margin-bottom: 20px; }
+        .stat-mini { background: #fff; border-radius: 12px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); flex: 1; position: relative; overflow: hidden; }
+        .stat-mini::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+        .stat-mini.purple::before { background: #4f46e5; }
+        .stat-mini.green::before { background: #10b981; }
+        .stat-mini.orange::before { background: #f59e0b; }
+        .stat-mini.red::before { background: #ef4444; }
+        .stat-mini-label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+        .stat-mini-value { font-size: 22px; font-weight: 700; color: #1f2937; }
+        .stat-mini-unit { font-size: 12px; color: #9ca3af; font-weight: 400; }
+
+        /* 筛选栏 */
+        .filter-bar { background: #fff; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .filter-select { padding: 8px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: #fff; cursor: pointer; outline: none; transition: border-color 0.2s; }
+        .filter-select:focus { border-color: #4f46e5; }
+        .search-box { flex: 1; min-width: 200px; position: relative; }
+        .search-box input { width: 100%; padding: 8px 14px 8px 38px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; outline: none; transition: border-color 0.2s; }
+        .search-box input:focus { border-color: #4f46e5; }
+        .search-box .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af; }
+
+        /* 表格 */
+        .table-container { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .action-btn { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; border: 1px solid; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px; }
+        .action-edit { border-color: #c7d2fe; color: #4f46e5; background: #fff; }
+        .action-edit:hover { background: #eef2ff; }
+        .action-reset { border-color: #bfdbfe; color: #2563eb; background: #fff; }
+        .action-reset:hover { background: #dbeafe; }
+        .action-toggle { border-color: #fef3c7; color: #d97706; background: #fff; }
+        .action-toggle:hover { background: #fffbeb; }
+        .action-delete { border-color: #fecaca; color: #ef4444; background: #fff; }
+        .action-delete:hover { background: #fef2f2; }
+
+        /* 分页 */
+        .pagination { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-top: 1px solid #f3f4f6; }
+        .pagination-info { font-size: 13px; color: #6b7280; }
+        .pagination-btns { display: flex; gap: 4px; }
+        .page-btn { min-width: 32px; height: 32px; border-radius: 6px; border: 1px solid #e5e7eb; background: #fff; color: #6b7280; font-size: 13px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+        .page-btn:hover { border-color: #4f46e5; color: #4f46e5; }
+        .page-btn.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+
+        .modal-content { max-width: 600px; }
+
+        /* 按钮组 */
+        .btn-group { display: flex; gap: 8px; }
+        .btn-import { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid #c7d2fe; background: #fff; color: #4f46e5; cursor: pointer; transition: all 0.2s; }
+        .btn-import:hover { background: #eef2ff; }
+        .btn-generate { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid #bbf7d0; background: #fff; color: #16a34a; cursor: pointer; transition: all 0.2s; }
+        .btn-generate:hover { background: #dcfce7; }
+        .btn-export { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid #bfdbfe; background: #fff; color: #2563eb; cursor: pointer; transition: all 0.2s; }
+        .btn-export:hover { background: #dbeafe; }
+
+        /* 上传区域 */
+        .upload-zone { border: 2px dashed #d1d5db; border-radius: 12px; padding: 30px 20px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .upload-zone:hover { border-color: #4f46e5; background: #eef2ff; }
+        .preview-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f9fafb; border-radius: 8px; margin-bottom: 6px; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                </div>
+                <div>
+                    <div class="sidebar-brand-text">考试系统</div>
+                    <div class="sidebar-brand-sub">管理后台</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="sidebar-section-label">主要功能</div>
+                <a href="admin-dashboard.html" class="sidebar-link">${ICONS.dashboard} 数据看板</a>
+                <a href="admin-questions.html" class="sidebar-link">${ICONS.question} 题库管理</a>
+                <a href="admin-exams.html" class="sidebar-link">${ICONS.exam} 考试管理</a>
+                <a href="admin-statistics.html" class="sidebar-link">${ICONS.chart} 成绩统计</a>
+                <a href="admin-users.html" class="sidebar-link active">${ICONS.users} 人员管理</a>
+                <a href="admin-review.html" class="sidebar-link">${ICONS.fileCheck} 阅卷中心</a>
+                <div class="sidebar-section-label">系统</div>
+                <a href="admin-settings.html" class="sidebar-link">${ICONS.settings} 系统设置</a>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="index.html" class="sidebar-link" style="color:#ef4444;">${ICONS.logout} 退出登录</a>
+            </div>
+        </aside>
+
+        <div class="main-area">
+            <header class="top-bar">
+                <div class="top-bar-title">人员管理</div>
+                <div class="top-bar-right">
+                    <div class="btn-group">
+                        <button class="btn-export" onclick="exportAccounts()">
+                            ${ICONS.download}
+                            导出列表
+                        </button>
+                        <button class="btn-import" onclick="showBatchImportModal()">
+                            ${ICONS.upload}
+                            批量导入
+                        </button>
+                        <button class="btn-generate" onclick="showAutoGenerateModal()">
+                            ${ICONS.sparkles}
+                            自动生成
+                        </button>
+                    </div>
+                    <button class="btn-primary" onclick="showAddAccountModal()">
+                        ${ICONS.userPlus}
+                        新增账号
+                    </button>
+                    <div class="admin-user">
+                        <div class="admin-avatar" id="topbar-avatar">管</div>
+                        <div>
+                            <div class="admin-name" id="topbar-name">管理员</div>
+                            <div class="admin-role" id="topbar-role">管理员</div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area fade-in">
+                <!-- 统计卡片 -->
+                <div class="stats-row">
+                    <div class="stat-mini purple">
+                        <div class="stat-mini-label">总账号数</div>
+                        <div class="stat-mini-value" id="stat-total">0<span class="stat-mini-unit"> 个</span></div>
+                    </div>
+                    <div class="stat-mini green">
+                        <div class="stat-mini-label">已启用</div>
+                        <div class="stat-mini-value" id="stat-active">0<span class="stat-mini-unit"> 个</span></div>
+                    </div>
+                    <div class="stat-mini orange">
+                        <div class="stat-mini-label">已禁用</div>
+                        <div class="stat-mini-value" id="stat-disabled">0<span class="stat-mini-unit"> 个</span></div>
+                    </div>
+                    <div class="stat-mini red">
+                        <div class="stat-mini-label">本月新增</div>
+                        <div class="stat-mini-value" id="stat-new">0<span class="stat-mini-unit"> 个</span></div>
+                    </div>
+                </div>
+
+                <!-- 筛选栏 -->
+                <div class="filter-bar">
+                    <div id="filter-dept-cascader" style="min-width:240px;">
+                        <!-- 级联部门选择器由 JS 填充 -->
+                    </div>
+                    <select class="filter-select" id="filter-project" onchange="renderAccounts()">
+                        <option value="">全部项目</option>
+                    </select>
+                    <select class="filter-select" id="filter-status" onchange="renderAccounts()">
+                        <option value="">全部状态</option>
+                        <option value="active">已启用</option>
+                        <option value="disabled">已禁用</option>
+                    </select>
+                    <div class="search-box">
+                        <span class="search-icon">${ICONS.search}</span>
+                        <input type="text" id="search-input" placeholder="搜索工号或姓名..." oninput="renderAccounts()">
+                    </div>
+                </div>
+
+                <!-- 表格 -->
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width:60px;">ID</th>
+                                <th>姓名</th>
+                                <th style="width:100px;">工号</th>
+                                <th style="width:120px;">部门</th>
+                                <th style="width:180px;">参与项目</th>
+                                <th style="width:80px;">状态</th>
+                                <th style="width:100px;">创建日期</th>
+                                <th style="width:240px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="account-tbody"></tbody>
+                    </table>
+                    <div class="pagination">
+                        <div class="pagination-info" id="pagination-info">共 0 条记录</div>
+                        <div class="pagination-btns">
+                            <button class="page-btn">‹</button>
+                            <button class="page-btn active">1</button>
+                            <button class="page-btn">›</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        (function(){var u=Utils.getLocal('current_user');if(u&&u.real_name){document.getElementById('topbar-name').textContent=u.real_name;document.getElementById('topbar-avatar').textContent=u.real_name.charAt(0);var r=u.department?u.department+' · ':'',s=u.role==='admin'?'管理员':(u.role||'');document.getElementById('topbar-role').textContent=r+s;}})();
+    </script>
+    <script>
+        // 初始化：确保账号数据存在
+        ExamSystem.AccountManager.getExamineeAccounts();
+
+        // 填充部门级联筛选
+        function populateDeptFilter() {
+            const container = document.getElementById('filter-dept-cascader');
+            container.innerHTML = ExamSystem.DepartmentManager.departmentCascaderHtml('', 'filter-dept');
+            setupDeptCascader('filter-dept', renderAccounts);
+        }
+
+        // 部门级联事件绑定
+        function setupDeptCascader(idPrefix, callback) {
+            const l1 = document.getElementById(`${idPrefix}-l1`);
+            const l2 = document.getElementById(`${idPrefix}-l2`);
+            const l3 = document.getElementById(`${idPrefix}-l3`);
+            if (!l1) return;
+
+            l1.addEventListener('change', () => {
+                const parentId = l1.value;
+                if (l2) {
+                    const children = parentId ? ExamSystem.DepartmentManager.getChildren(parseInt(parentId, 10)) : [];
+                    l2.innerHTML = '<option value="">全部</option>' + children.map(d =>
+                        `<option value="${Utils.escapeAttr(d.id)}">${Utils.escapeHtml(d.name)}</option>`
+                    ).join('');
+                    l2.style.display = children.length ? 'block' : 'none';
+                    l2.value = '';
+                }
+                if (l3) {
+                    l3.style.display = 'none';
+                    l3.innerHTML = '<option value="">全部</option>';
+                    l3.value = '';
+                }
+                if (callback) callback();
+            });
+
+            if (l2) {
+                l2.addEventListener('change', () => {
+                    const parentId = l2.value;
+                    if (l3) {
+                        const children = parentId ? ExamSystem.DepartmentManager.getChildren(parseInt(parentId, 10)) : [];
+                        l3.innerHTML = '<option value="">全部</option>' + children.map(d =>
+                            `<option value="${Utils.escapeAttr(d.id)}">${Utils.escapeHtml(d.name)}</option>`
+                        ).join('');
+                        l3.style.display = children.length ? 'block' : 'none';
+                        l3.value = '';
+                    }
+                    if (callback) callback();
+                });
+            }
+
+            if (l3) {
+                l3.addEventListener('change', () => {
+                    if (callback) callback();
+                });
+            }
+        }
+
+        // 获取筛选选中的部门ID（最深层）
+        function getFilterDeptId() {
+            return ExamSystem.DepartmentManager.getSelectedFromCascader('filter-dept');
+        }
+
+        // 填充项目筛选
+        function populateProjectFilterUsers() {
+            const select = document.getElementById('filter-project');
+            const projects = ExamSystem.ProjectManager.getProjects().filter(p => p.status !== 'deleted');
+            select.innerHTML = '<option value="">全部项目</option>';
+            projects.forEach(p => {
+                select.innerHTML += `<option value="${Utils.escapeAttr(p.id)}">${Utils.escapeHtml(p.name)}</option>`;
+            });
+        }
+
+        // 更新统计
+        function updateStats() {
+            const accounts = ExamSystem.AccountManager.getExamineeAccounts();
+            const active = accounts.filter(a => a.status === 'active').length;
+            const disabled = accounts.filter(a => a.status === 'disabled').length;
+            const now = new Date().toISOString().slice(0, 7);
+            const newCount = accounts.filter(a => a.created && a.created.startsWith(now)).length;
+
+            document.getElementById('stat-total').innerHTML = accounts.length + '<span class="stat-mini-unit"> 个</span>';
+            document.getElementById('stat-active').innerHTML = active + '<span class="stat-mini-unit"> 个</span>';
+            document.getElementById('stat-disabled').innerHTML = disabled + '<span class="stat-mini-unit"> 个</span>';
+            document.getElementById('stat-new').innerHTML = newCount + '<span class="stat-mini-unit"> 个</span>';
+        }
+
+        // 渲染账号列表
+        function renderAccounts() {
+            const accounts = ExamSystem.AccountManager.getExamineeAccounts();
+            const deptFilterId = getFilterDeptId();
+            const projectFilter = document.getElementById('filter-project').value;
+            const statusFilter = document.getElementById('filter-status').value;
+            const searchText = document.getElementById('search-input').value.toLowerCase();
+
+            let filtered = accounts.filter(a => {
+                if (deptFilterId) {
+                    const accountDeptId = a.departmentId;
+                    if (!accountDeptId) {
+                        // 旧数据没有 departmentId，按部门路径前缀匹配
+                        const fullPath = ExamSystem.DepartmentManager.getFullPath(deptFilterId);
+                        if (!a.department || !a.department.startsWith(fullPath.split(' / ')[0])) return false;
+                    } else {
+                        const subIds = ExamSystem.DepartmentManager.getSubIds(deptFilterId);
+                        if (!subIds.includes(accountDeptId) && accountDeptId !== deptFilterId) return false;
+                    }
+                }
+                if (statusFilter && a.status !== statusFilter) return false;
+                if (projectFilter && !(a.project_ids && a.project_ids.includes(parseInt(projectFilter)))) return false;
+                if (searchText && !a.username.toLowerCase().includes(searchText) && !a.real_name.toLowerCase().includes(searchText)) return false;
+                return true;
+            });
+
+            const tbody = document.getElementById('account-tbody');
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#9ca3af;">暂无符合条件的账号</td></tr>';
+            } else {
+                let html = '';
+                filtered.forEach(a => {
+                    const statusBadge = a.status === 'active' ? 'badge-success' : 'badge-gray';
+                    const statusText = a.status === 'active' ? '已启用' : '已禁用';
+                    const toggleText = a.status === 'active' ? '禁用' : '启用';
+                    // 项目标签
+                    let projectHtml = '<span style="font-size:12px;color:#9ca3af;">未分配</span>';
+                    if (a.project_ids && a.project_ids.length > 0) {
+                        projectHtml = a.project_ids.map(pid => {
+                            const p = ExamSystem.ProjectManager.getProject(pid);
+                            return p ? `<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;background:#fef3c7;color:#92400e;margin:1px;">${Utils.escapeHtml(p.name)}</span>` : '';
+                        }).join(' ');
+                    }
+                    html += `
+                        <tr>
+                            <td style="color:#9ca3af;font-size:13px;">#${String(a.id).padStart(4, '0')}</td>
+                            <td style="font-weight:500;color:#1f2937;">${Utils.escapeHtml(a.real_name)}</td>
+                            <td style="font-size:13px;color:#6b7280;font-family:monospace;">${Utils.escapeHtml(a.username)}</td>
+                            <td style="font-size:13px;color:#6b7280;">${Utils.escapeHtml(a.department)}</td>
+                            <td>${projectHtml}</td>
+                            <td><span class="badge ${statusBadge}">${statusText}</span></td>
+                            <td style="font-size:13px;color:#9ca3af;">${a.created || '-'}</td>
+                            <td>
+                                <button class="action-btn action-edit" onclick="editAccount(${a.id})">${ICONS.edit}编辑</button>
+                                <button class="action-btn action-reset" onclick="resetPwd(${a.id})">${ICONS.key}重置密码</button>
+                                <button class="action-btn action-toggle" onclick="toggleAccountStatus(${a.id})">${a.status === 'active' ? ICONS.ban : ICONS.check}${toggleText}</button>
+                                <button class="action-btn action-delete" onclick="deleteAccount(${a.id})">${ICONS.trash}删除</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+            }
+
+            document.getElementById('pagination-info').textContent = `共 ${filtered.length} 条记录`;
+        }
+
+        // 新增账号
+        function showAddAccountModal() {
+            const overlay = Utils.showModal(`
+                <div style="padding:32px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:24px;">新增考试人员账号</h3>
+
+                    <div class="form-section" style="margin-bottom:20px;">
+                        <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">工号 <span style="color:#ef4444;">*</span></label>
+                        <input type="text" class="input-field" id="new-username" placeholder="如：EMP009" style="height:42px;">
+                    </div>
+
+                    <div class="form-section" style="margin-bottom:20px;">
+                        <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">姓名 <span style="color:#ef4444;">*</span></label>
+                        <input type="text" class="input-field" id="new-realname" placeholder="请输入姓名" style="height:42px;">
+                    </div>
+
+                    <div style="display:flex;gap:16px;margin-bottom:20px;">
+                        <div style="flex:1;">
+                            <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">部门 <span style="color:#ef4444;">*</span></label>
+                            <div id="new-dept-cascader">
+                                ${ExamSystem.DepartmentManager.departmentCascaderHtml('', 'new-dept')}
+                            </div>
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">岗位</label>
+                            <input type="text" class="input-field" id="new-position" placeholder="如：前端工程师" style="height:42px;">
+                        </div>
+                    </div>
+
+                    <div class="form-section" style="margin-bottom:20px;">
+                        <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">参与项目（可多选，支持后期修改）</label>
+                        <div id="new-project-list" style="display:flex;flex-wrap:wrap;gap:8px;">
+                            ${ExamSystem.ProjectManager.projectTagsHtml([])}
+                    </div>
+
+                    <div class="form-section" style="margin-bottom:28px;">
+                        <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">初始密码</label>
+                        <input type="text" class="input-field" id="new-password" value="" placeholder="请输入初始密码" style="height:42px;">
+                        <div style="font-size:12px;color:#9ca3af;margin-top:6px;">请设置初始密码，用户首次登录后可自行修改</div>
+                    </div>
+
+                    <div style="display:flex;justify-content:flex-end;gap:12px;">
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" id="save-account-btn" onclick="saveNewAccount()">创建账号</button>
+                    </div>
+                </div>
+            `);
+        }
+
+        function saveNewAccount() {
+            const username = document.getElementById('new-username').value.trim();
+            const realName = document.getElementById('new-realname').value.trim();
+            const departmentId = ExamSystem.DepartmentManager.getSelectedFromCascader('new-dept');
+            const position = document.getElementById('new-position').value.trim();
+            const password = document.getElementById('new-password').value.trim() || '123456';
+            const projectIds = Array.from(document.querySelectorAll('#new-project-list .project-checkbox:checked')).map(cb => parseInt(cb.value));
+
+            if (!username) { Utils.toast('请输入工号', 'error'); return; }
+            if (!realName) { Utils.toast('请输入姓名', 'error'); return; }
+            if (!departmentId) { Utils.toast('请选择部门', 'error'); return; }
+
+            if (ExamSystem.AccountManager.isUsernameExists(username)) {
+                Utils.toast('工号已存在，请使用其他工号', 'error');
+                return;
+            }
+
+            ExamSystem.AccountManager.addAccount({
+                username: username,
+                password: password,
+                real_name: realName,
+                departmentId: departmentId,
+                position: position,
+                status: 'active',
+                project_ids: projectIds
+            });
+
+            Utils.closeModal(document.querySelector('.modal-overlay'));
+            Utils.toast(`账号 ${username} 创建成功！`, 'success');
+            updateStats();
+            renderAccounts();
+        }
+
+        // 编辑账号
+        function editAccount(id) {
+            const accounts = ExamSystem.AccountManager.getExamineeAccounts();
+            const account = accounts.find(a => a.id === id);
+            if (!account) return;
+
+            const overlay = Utils.showModal(`
+                <div style="padding:32px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:24px;">编辑账号信息</h3>
+
+                    <div class="form-section" style="margin-bottom:20px;">
+                        <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">工号</label>
+                        <input type="text" class="input-field" id="edit-username" value="${Utils.escapeAttr(account.username)}" readonly style="height:42px;background:#f9fafb;">
+                    </div>
+
+                    <div class="form-section" style="margin-bottom:20px;">
+                        <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">姓名</label>
+                        <input type="text" class="input-field" id="edit-realname" value="${Utils.escapeAttr(account.real_name)}" style="height:42px;">
+                    </div>
+
+                    <div style="display:flex;gap:16px;margin-bottom:20px;">
+                        <div style="flex:1;">
+                            <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">部门</label>
+                            <div id="edit-dept-cascader">
+                                ${ExamSystem.DepartmentManager.departmentCascaderHtml(account.departmentId, 'edit-dept')}
+                            </div>
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">岗位</label>
+                            <input type="text" class="input-field" id="edit-position" value="${Utils.escapeAttr(account.position || '')}" style="height:42px;">
+                        </div>
+                    </div>
+
+                    <div class="form-section" style="margin-bottom:20px;">
+                        <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">参与项目（可修改，支持员工换项目）</label>
+                        <div id="edit-project-list" style="display:flex;flex-wrap:wrap;gap:8px;">
+                            ${ExamSystem.ProjectManager.projectTagsHtml(account.project_ids || [])}
+                        </div>
+                        <div style="font-size:12px;color:#9ca3af;margin-top:6px;">修改后，该员工将看到新参与项目的考试与题库，旧项目考试将不再显示</div>
+                    </div>
+
+                    <div class="form-section" style="margin-bottom:28px;">
+                        <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">密码</label>
+                        <input type="password" class="input-field" id="edit-password" value="" placeholder="留空则不修改密码" style="height:42px;">
+                    </div>
+
+                    <div style="display:flex;justify-content:flex-end;gap:12px;">
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" onclick="saveEditAccount(${id})">保存修改</button>
+                    </div>
+                </div>
+            `);
+        }
+
+        function saveEditAccount(id) {
+            const realName = document.getElementById('edit-realname').value.trim();
+            const departmentId = ExamSystem.DepartmentManager.getSelectedFromCascader('edit-dept');
+            const position = document.getElementById('edit-position').value.trim();
+            const password = document.getElementById('edit-password').value.trim();
+            const projectIds = Array.from(document.querySelectorAll('#edit-project-list .project-checkbox:checked')).map(cb => parseInt(cb.value));
+
+            if (!realName) { Utils.toast('请输入姓名', 'error'); return; }
+            if (!departmentId) { Utils.toast('请选择部门', 'error'); return; }
+
+            const updates = {
+                real_name: realName,
+                departmentId: departmentId,
+                position: position,
+                project_ids: projectIds
+            };
+            // 仅在输入了新密码时才更新密码
+            if (password) {
+                updates.password = password;
+            }
+            ExamSystem.AccountManager.updateAccount(id, updates);
+
+            Utils.closeModal(document.querySelector('.modal-overlay'));
+            Utils.toast('账号信息已更新', 'success');
+            renderAccounts();
+        }
+
+        // 重置密码
+        function resetPwd(id) {
+            const accounts = ExamSystem.AccountManager.getExamineeAccounts();
+            const account = accounts.find(a => a.id === id);
+            Utils.confirm(`确定要将 ${Utils.escapeHtml(account.real_name)}（${Utils.escapeHtml(account.username)}）的密码重置为默认密码吗？`, () => {
+                ExamSystem.AccountManager.resetPassword(id);
+                Utils.toast('密码已重置为默认密码', 'success');
+            }, '重置密码');
+        }
+
+        // 切换状态
+        function toggleAccountStatus(id) {
+            const accounts = ExamSystem.AccountManager.getExamineeAccounts();
+            const account = accounts.find(a => a.id === id);
+            const action = account.status === 'active' ? '禁用' : '启用';
+            Utils.confirm(`确定要${action}账号 ${Utils.escapeHtml(account.real_name)}（${Utils.escapeHtml(account.username)}）吗？${account.status === 'active' ? '禁用后该用户将无法登录系统。' : ''}`, () => {
+                ExamSystem.AccountManager.toggleStatus(id);
+                Utils.toast(`账号已${action}`, 'success');
+                updateStats();
+                renderAccounts();
+            }, `${action}账号`);
+        }
+
+        // 删除账号
+        function deleteAccount(id) {
+            const accounts = ExamSystem.AccountManager.getExamineeAccounts();
+            const account = accounts.find(a => a.id === id);
+            Utils.confirm(`确定要删除账号 ${Utils.escapeHtml(account.real_name)}（${Utils.escapeHtml(account.username)}）吗？删除后无法恢复。`, () => {
+                ExamSystem.AccountManager.deleteAccount(id);
+                Utils.toast('账号已删除', 'success');
+                updateStats();
+                renderAccounts();
+            }, '删除确认');
+        }
+
+        // 批量导入
+        function showBatchImportModal() {
+            const overlay = Utils.showModal(`
+                <div style="padding:32px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:8px;">批量导入账号</h3>
+                    <p style="font-size:14px;color:#6b7280;margin-bottom:24px;">通过 Excel/CSV 文件批量导入考试人员账号</p>
+
+                    <div style="display:flex;gap:8px;margin-bottom:20px;">
+                        <span class="badge badge-success" style="padding:4px 12px;">Excel (.xlsx)</span>
+                        <span class="badge badge-warning" style="padding:4px 12px;">CSV (.csv)</span>
+                    </div>
+
+                    <div class="upload-zone" onclick="document.getElementById('batch-file-input').click()">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5" style="margin-bottom:8px;">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <div style="font-size:14px;color:#6b7280;">点击上传文件</div>
+                        <div style="font-size:12px;color:#9ca3af;margin-top:4px;">支持 .xlsx, .csv 格式</div>
+                        <input type="file" id="batch-file-input" style="display:none;" accept=".xlsx,.csv" onchange="handleBatchUpload(event)">
+                    </div>
+
+                    <div id="batch-preview" style="display:none;margin-top:20px;">
+                        <div style="font-size:14px;font-weight:600;color:#1f2937;margin-bottom:12px;">预览（前5条）</div>
+                        <div id="batch-preview-list"></div>
+                        <div style="font-size:13px;color:#6b7280;margin-top:8px;" id="batch-summary"></div>
+                    </div>
+
+                    <div style="background:#f9fafb;border-radius:10px;padding:16px;margin-top:20px;">
+                        <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">文件格式要求：</div>
+                        <div style="font-size:12px;color:#6b7280;line-height:1.8;">
+                            第一行为表头，需包含：工号、姓名、部门、岗位、密码<br>
+                            密码列可省略，系统将自动生成默认密码
+                        </div>
+                    </div>
+
+                    <div class="form-section" style="margin-top:20px;">
+                        <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">为导入的账号统一分配项目（可多选，可后期修改）</label>
+                        <div id="batch-project-list" style="display:flex;flex-wrap:wrap;gap:8px;">
+                            ${ExamSystem.ProjectManager.projectTagsHtml([])} Utils.toast('模板已下载', 'success')">
+                            ${ICONS.download}
+                            下载模板
+                        </button>
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" id="batch-confirm-btn" style="display:none;" onclick="confirmBatchImport()">
+                            ${ICONS.check}
+                            确认导入
+                        </button>
+                    </div>
+                </div>
+            `);
+        }
+
+        let batchImportData = [];
+
+        async function handleBatchUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const wb = XLSX.read(arrayBuffer, { type: 'array' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(ws);
+
+                batchImportData = rows.map(row => ({
+                    username: String(row['工号'] || row['username'] || '').trim(),
+                    real_name: String(row['姓名'] || row['real_name'] || '').trim(),
+                    department: String(row['部门'] || row['department'] || '').trim(),
+                    position: String(row['岗位'] || row['position'] || '').trim(),
+                    password: String(row['密码'] || row['password'] || '123456').trim(),
+                    status: 'active'
+                })).filter(r => r.username && r.real_name);
+
+                if (batchImportData.length === 0) {
+                    Utils.toast('文件中未找到有效数据', 'warning');
+                    return;
+                }
+
+                // 预览前5条
+                const previewHtml = batchImportData.slice(0, 5).map(r => `
+                    <div class="preview-row">
+                        <span style="font-weight:600;color:#4f46e5;width:80px;">${Utils.escapeHtml(r.username)}</span>
+                        <span style="flex:1;color:#374151;">${Utils.escapeHtml(r.real_name)}</span>
+                        <span style="color:#6b7280;">${Utils.escapeHtml(r.department)}</span>
+                        <span style="color:#9ca3af;font-size:12px;">${r.position || '-'}</span>
+                    </div>
+                `).join('');
+                document.getElementById('batch-preview-list').innerHTML = previewHtml;
+                document.getElementById('batch-summary').textContent = `共 ${batchImportData.length} 条数据，点击"确认导入"完成批量创建`;
+                document.getElementById('batch-preview').style.display = 'block';
+                document.getElementById('batch-confirm-btn').style.display = 'inline-flex';
+
+                Utils.toast(`成功解析 ${batchImportData.length} 条数据`, 'success');
+            } catch (err) {
+                Utils.toast('文件解析失败：' + err.message, 'error');
+            }
+        }
+
+        function confirmBatchImport() {
+            const btn = document.getElementById('batch-confirm-btn');
+            btn.innerHTML = '<span class="spinner"></span> 导入中...';
+            btn.disabled = true;
+
+            // 获取批量分配的项目
+            const batchProjectIds = Array.from(document.querySelectorAll('#batch-project-list .project-checkbox:checked')).map(cb => parseInt(cb.value));
+
+            // 过滤掉已存在的工号
+            const existing = ExamSystem.AccountManager.getExamineeAccounts();
+            const existingUsernames = new Set(existing.map(a => a.username));
+            const newAccounts = batchImportData.filter(a => !existingUsernames.has(a.username));
+            const skipped = batchImportData.length - newAccounts.length;
+
+            // 为每个新账号附加项目分配
+            newAccounts.forEach(a => {
+                a.project_ids = batchProjectIds;
+            });
+
+            setTimeout(() => {
+                if (newAccounts.length > 0) {
+                    ExamSystem.AccountManager.batchAddAccounts(newAccounts);
+                }
+                Utils.closeModal(document.querySelector('.modal-overlay'));
+                let msg = `成功导入 ${newAccounts.length} 个账号`;
+                if (skipped > 0) msg += `，跳过 ${skipped} 个重复工号`;
+                Utils.toast(msg, 'success');
+                updateStats();
+                populateDeptFilter();
+                renderAccounts();
+            }, 800);
+        }
+
+        // 自动生成账号
+        function showAutoGenerateModal() {
+            const overlay = Utils.showModal(`
+                <div style="padding:32px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:8px;">自动生成账号</h3>
+                    <p style="font-size:14px;color:#6b7280;margin-bottom:24px;">系统将根据前缀自动批量生成连续工号的考试人员账号</p>
+
+                    <div style="display:flex;gap:16px;margin-bottom:20px;">
+                        <div style="flex:1;">
+                            <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">工号前缀 <span style="color:#ef4444;">*</span></label>
+                            <input type="text" class="input-field" id="gen-prefix" value="EMP" placeholder="如：EMP" style="height:42px;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">生成数量 <span style="color:#ef4444;">*</span></label>
+                            <input type="number" class="input-field" id="gen-count" value="10" min="1" max="500" style="height:42px;">
+                        </div>
+                    </div>
+
+                    <div style="display:flex;gap:16px;margin-bottom:20px;">
+                        <div style="flex:1;">
+                            <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">部门 <span style="color:#ef4444;">*</span></label>
+                            <div id="gen-dept-cascader">
+                                ${ExamSystem.DepartmentManager.departmentCascaderHtml('', 'gen-dept')}
+                            </div>
+                        </div>
+                        <div style="flex:1;">
+                            <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">岗位</label>
+                            <input type="text" class="input-field" id="gen-position" placeholder="如：待分配" style="height:42px;">
+                        </div>
+                    </div>
+
+                    <div class="form-section" style="margin-bottom:20px;">
+                        <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">初始密码</label>
+                        <input type="text" class="input-field" id="gen-password" value="" placeholder="请输入初始密码" style="height:42px;">
+                    </div>
+
+                    <div class="form-section" style="margin-bottom:20px;">
+                        <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">参与项目（可多选，可后期修改）</label>
+                        <div id="gen-project-list" style="display:flex;flex-wrap:wrap;gap:8px;">
+                            ${ExamSystem.ProjectManager.projectTagsHtml([])}
+                        <div style="font-size:13px;color:#4f46e5;display:flex;align-items:center;gap:8px;">
+                            ${ICONS.sparkles}
+                            <span>预览：工号将从 <strong id="preview-start">EMP010</strong> 开始连续编号</span>
+                        </div>
+                    </div>
+
+                    <div style="display:flex;justify-content:flex-end;gap:12px;">
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" onclick="confirmAutoGenerate()">生成账号</button>
+                    </div>
+                </div>
+            `);
+
+            // 更新预览
+            function updatePreview() {
+                const prefix = document.getElementById('gen-prefix').value.trim() || 'EMP';
+                const accounts = ExamSystem.AccountManager.getExamineeAccounts();
+                let maxNum = 0;
+                accounts.forEach(a => {
+                    if (a.username.startsWith(prefix)) {
+                        const num = parseInt(a.username.substring(prefix.length));
+                        if (!isNaN(num) && num > maxNum) maxNum = num;
+                    }
+                });
+                document.getElementById('preview-start').textContent = prefix + String(maxNum + 1).padStart(3, '0');
+            }
+            updatePreview();
+            document.getElementById('gen-prefix').addEventListener('input', updatePreview);
+        }
+
+        function confirmAutoGenerate() {
+            const prefix = document.getElementById('gen-prefix').value.trim();
+            const count = parseInt(document.getElementById('gen-count').value);
+            const departmentId = ExamSystem.DepartmentManager.getSelectedFromCascader('gen-dept');
+            const position = document.getElementById('gen-position').value.trim();
+            const password = document.getElementById('gen-password').value.trim() || '123456';
+            const projectIds = Array.from(document.querySelectorAll('#gen-project-list .project-checkbox:checked')).map(cb => parseInt(cb.value));
+
+            if (!prefix) { Utils.toast('请输入工号前缀', 'error'); return; }
+            if (!count || count < 1) { Utils.toast('请输入有效的生成数量', 'error'); return; }
+            if (!departmentId) { Utils.toast('请选择部门', 'error'); return; }
+
+            const deptName = ExamSystem.DepartmentManager.getFullPath(departmentId);
+            const newAccounts = ExamSystem.AccountManager.autoGenerateAccounts(prefix, count, deptName, position, password, departmentId);
+
+            // 为新生成的账号分配项目
+            if (projectIds.length > 0) {
+                newAccounts.forEach(a => {
+                    ExamSystem.AccountManager.updateAccount(a.id, { project_ids: projectIds });
+                });
+            }
+
+            Utils.closeModal(document.querySelector('.modal-overlay'));
+            Utils.toast(`成功生成 ${newAccounts.length} 个账号（${newAccounts[0].username} ~ ${newAccounts[newAccounts.length - 1].username}）`, 'success');
+            updateStats();
+            populateDeptFilter();
+            renderAccounts();
+        }
+
+        // 导出账号列表
+        function exportAccounts() {
+            const accounts = ExamSystem.AccountManager.getExamineeAccounts();
+            if (accounts.length === 0) {
+                Utils.toast('暂无账号可导出', 'warning');
+                return;
+            }
+            ExportUtil.exportAccountList(accounts);
+            Utils.toast('账号列表已导出', 'success');
+        }
+
+        // 初始化
+        populateDeptFilter();
+        populateProjectFilterUsers();
+        updateStats();
+        renderAccounts();
+    </script>
+</body>
+</html>

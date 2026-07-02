@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成绩统计 - 企业培训考试系统</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        .admin-layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 240px; background: #fff; border-right: 1px solid #e5e7eb; padding: 20px 16px; position: fixed; top: 0; bottom: 0; left: 0; z-index: 100; display: flex; flex-direction: column; }
+        .sidebar-brand { display: flex; align-items: center; gap: 12px; padding: 8px 12px 24px; border-bottom: 1px solid #f3f4f6; margin-bottom: 16px; }
+        .sidebar-brand-icon { width: 36px; height: 36px; background: linear-gradient(135deg, #4f46e5, #7c3aed); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+        .sidebar-brand-text { font-size: 15px; font-weight: 700; color: #1f2937; }
+        .sidebar-brand-sub { font-size: 11px; color: #9ca3af; }
+        .sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .sidebar-section-label { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; padding: 16px 16px 8px; letter-spacing: 0.5px; }
+        .sidebar-footer { padding-top: 16px; border-top: 1px solid #f3f4f6; }
+        .main-area { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .top-bar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0 28px; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+        .top-bar-title { font-size: 18px; font-weight: 600; color: #1f2937; }
+        .top-bar-right { display: flex; align-items: center; gap: 16px; }
+        .admin-user { display: flex; align-items: center; gap: 10px; padding: 4px 12px; border-radius: 30px; background: #f3f4f6; cursor: pointer; }
+        .admin-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
+        .admin-name { font-size: 14px; font-weight: 500; color: #374151; }
+        .admin-role { font-size: 11px; color: #9ca3af; }
+        .content-area { padding: 28px; flex: 1; }
+
+        /* 筛选栏 */
+        .filter-bar {
+            background: #fff; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px;
+            display: flex; align-items: center; gap: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .filter-label { font-size: 14px; font-weight: 500; color: #374151; }
+        .filter-select {
+            padding: 8px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px;
+            background: #fff; cursor: pointer; outline: none; transition: border-color 0.2s; min-width: 240px;
+        }
+        .filter-select:focus { border-color: #4f46e5; }
+
+        /* 统计卡片 */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 24px;
+        }
+        .stat-mini {
+            background: #fff; border-radius: 12px; padding: 18px; text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06); position: relative; overflow: hidden; transition: all 0.2s;
+        }
+        .stat-mini:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .stat-mini::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+        .stat-mini.purple::before { background: #4f46e5; }
+        .stat-mini.blue::before { background: #3b82f6; }
+        .stat-mini.green::before { background: #10b981; }
+        .stat-mini.orange::before { background: #f59e0b; }
+        .stat-mini.red::before { background: #ef4444; }
+        .stat-mini.cyan::before { background: #06b6d4; }
+        .stat-mini-label { font-size: 12px; color: #6b7280; margin-bottom: 6px; }
+        .stat-mini-value { font-size: 24px; font-weight: 700; color: #1f2937; }
+        .stat-mini-unit { font-size: 12px; color: #9ca3af; font-weight: 400; }
+
+        /* 图表区域 */
+        .chart-row {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;
+        }
+        .chart-card {
+            background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .chart-title {
+            font-size: 16px; font-weight: 600; color: #1f2937; margin-bottom: 16px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .chart-title::before { content: ''; width: 4px; height: 20px; background: #4f46e5; border-radius: 2px; }
+        .chart-container { height: 280px; }
+
+        /* 排行榜表格 */
+        .ranking-table-container {
+            background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .rank-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 28px; height: 28px; border-radius: 50%; font-size: 13px; font-weight: 700;
+        }
+        .rank-1 { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #fff; }
+        .rank-2 { background: linear-gradient(135deg, #e5e7eb, #9ca3af); color: #fff; }
+        .rank-3 { background: linear-gradient(135deg, #fb923c, #ea580c); color: #fff; }
+        .rank-normal { background: #f3f4f6; color: #6b7280; }
+        .score-cell { font-weight: 700; font-size: 15px; }
+        .score-cell.passed { color: #16a34a; }
+        .score-cell.failed { color: #ef4444; }
+
+        .export-btn {
+            display: flex; align-items: center; gap: 6px;
+            padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
+            border: 1px solid #c7d2fe; background: #fff; color: #4f46e5; cursor: pointer; transition: all 0.2s;
+        }
+        .export-btn:hover { background: #eef2ff; }
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                </div>
+                <div>
+                    <div class="sidebar-brand-text">考试系统</div>
+                    <div class="sidebar-brand-sub">管理后台</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="sidebar-section-label">主要功能</div>
+                <a href="admin-dashboard.html" class="sidebar-link">${ICONS.dashboard} 数据看板</a>
+                <a href="admin-questions.html" class="sidebar-link">${ICONS.question} 题库管理</a>
+                <a href="admin-exams.html" class="sidebar-link">${ICONS.exam} 考试管理</a>
+                <a href="admin-statistics.html" class="sidebar-link active">${ICONS.chart} 成绩统计</a>
+                <a href="admin-users.html" class="sidebar-link">${ICONS.users} 人员管理</a>
+                <a href="admin-review.html" class="sidebar-link">${ICONS.fileCheck} 阅卷中心</a>
+                <div class="sidebar-section-label">系统</div>
+                <a href="admin-settings.html" class="sidebar-link">${ICONS.settings} 系统设置</a>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="index.html" class="sidebar-link" style="color:#ef4444;">${ICONS.logout} 退出登录</a>
+            </div>
+        </aside>
+
+        <div class="main-area">
+            <header class="top-bar">
+                <div class="top-bar-title">成绩统计</div>
+                <div class="top-bar-right">
+                    <button class="export-btn" onclick="exportScoreReport()">
+                        ${ICONS.download}
+                        导出成绩单
+                    </button>
+                    <div class="admin-user">
+                        <div class="admin-avatar" id="topbar-avatar">管</div>
+                        <div>
+                            <div class="admin-name" id="topbar-name">管理员</div>
+                            <div class="admin-role" id="topbar-role">管理员</div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area fade-in">
+                <div class="filter-bar">
+                    <span class="filter-label">项目：</span>
+                    <select class="filter-select" id="project-select" onchange="onProjectChange()" style="min-width:180px;">
+                        <option value="">全部项目</option>
+                        <option value="public">公共考试</option>
+                    </select>
+                    <span class="filter-label">考试：</span>
+                    <select class="filter-select" id="exam-select" onchange="onExamChange()">
+                        <option value="">请选择考试</option>
+                    </select>
+                    <span style="font-size:13px;color:#9ca3af;margin-left:auto;" id="exam-time-info">
+                        请选择考试查看统计
+                    </span>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-mini purple">
+                        <div class="stat-mini-label">参加人数</div>
+                        <div class="stat-mini-value" id="stat-total">0<span class="stat-mini-unit"> 人</span></div>
+                    </div>
+                    <div class="stat-mini blue">
+                        <div class="stat-mini-label">平均分</div>
+                        <div class="stat-mini-value" id="stat-avg">0<span class="stat-mini-unit"> 分</span></div>
+                    </div>
+                    <div class="stat-mini green">
+                        <div class="stat-mini-label">最高分</div>
+                        <div class="stat-mini-value" id="stat-max">0<span class="stat-mini-unit"> 分</span></div>
+                    </div>
+                    <div class="stat-mini orange">
+                        <div class="stat-mini-label">最低分</div>
+                        <div class="stat-mini-value" id="stat-min">0<span class="stat-mini-unit"> 分</span></div>
+                    </div>
+                    <div class="stat-mini cyan">
+                        <div class="stat-mini-label">通过率</div>
+                        <div class="stat-mini-value" id="stat-passrate">0<span class="stat-mini-unit">%</span></div>
+                    </div>
+                    <div class="stat-mini red">
+                        <div class="stat-mini-label">及格线</div>
+                        <div class="stat-mini-value" id="stat-passscore">60<span class="stat-mini-unit"> 分</span></div>
+                    </div>
+                </div>
+
+                <div class="chart-row">
+                    <div class="chart-card">
+                        <div class="chart-title">分数段分布</div>
+                        <div class="chart-container" id="score-dist-chart"></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-title">题型正确率分析</div>
+                        <div class="chart-container" id="type-accuracy-chart"></div>
+                    </div>
+                </div>
+
+                <div class="ranking-table-container">
+                    <div style="padding:20px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f3f4f6;">
+                        <div class="chart-title" style="margin-bottom:0;">成绩排行榜</div>
+                        <div style="display:flex;gap:8px;">
+                            <input type="text" class="input-field" id="ranking-search" placeholder="搜索姓名/工号..." style="width:200px;font-size:13px;padding:6px 12px;" oninput="renderRanking()">
+                            <select class="filter-select" id="ranking-status-filter" style="min-width:auto;" onchange="renderRanking()">
+                                <option value="">全部</option>
+                                <option value="passed">已通过</option>
+                                <option value="failed">未通过</option>
+                            </select>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width:70px;">排名</th>
+                                <th>姓名</th>
+                                <th style="width:120px;">工号</th>
+                                <th style="width:100px;">得分</th>
+                                <th style="width:100px;">阅卷状态</th>
+                                <th style="width:120px;">用时</th>
+                                <th style="width:160px;">交卷时间</th>
+                                <th style="width:100px;">状态</th>
+                                <th style="width:100px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ranking-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        (function(){var u=Utils.getLocal('current_user');if(u&&u.real_name){document.getElementById('topbar-name').textContent=u.real_name;document.getElementById('topbar-avatar').textContent=u.real_name.charAt(0);var r=u.department?u.department+' · ':'',s=u.role==='admin'?'管理员':(u.role||'');document.getElementById('topbar-role').textContent=r+s;}})();
+    </script>
+    <script>
+        let currentResults = []; // 当前考试的真实结果数据
+        let scoreChart = null;
+        let typeChart = null;
+
+        // 单一 resize handler，避免内存泄漏
+        let resizeHandler = () => {
+            if (scoreChart) scoreChart.resize();
+            if (typeChart) typeChart.resize();
+        };
+        // 初始化时只注册一次
+        window.addEventListener('resize', resizeHandler);
+
+        // 初始化项目筛选
+        function initProjectFilter() {
+            const select = document.getElementById('project-select');
+            const projects = ExamSystem.ProjectManager.getProjects().filter(p => p.status !== 'deleted');
+            projects.forEach(p => {
+                select.innerHTML += `<option value="${Utils.escapeAttr(p.id)}">${Utils.escapeHtml(p.name)}</option>`;
+            });
+        }
+
+        // 项目切换时刷新考试列表
+        function onProjectChange() {
+            const projectId = document.getElementById('project-select').value;
+            const examSelect = document.getElementById('exam-select');
+            let exams = ExamSystem.ExamManager.getExams();
+
+            if (projectId === 'public') {
+                exams = exams.filter(e => !e.scope || e.scope === 'public');
+            } else if (projectId) {
+                exams = exams.filter(e => e.scope === 'project' && String(e.project_id) === projectId);
+            }
+
+            examSelect.innerHTML = '<option value="">请选择考试</option>';
+            exams.forEach(e => {
+                examSelect.innerHTML += `<option value="${Utils.escapeAttr(e.id)}">${Utils.escapeHtml(e.title)}</option>`;
+            });
+
+            document.getElementById('exam-time-info').textContent = '请选择考试查看统计';
+            resetStats();
+        }
+
+        // 考试切换时加载真实数据
+        function onExamChange() {
+            const examId = document.getElementById('exam-select').value;
+            if (!examId) {
+                resetStats();
+                return;
+            }
+
+            const exam = ExamSystem.ExamManager.getExam(parseInt(examId));
+            if (!exam) return;
+
+            // 更新考试时间信息
+            document.getElementById('exam-time-info').textContent =
+                `考试时间：${exam.start_time || '未知'} ~ ${exam.end_time || '未知'}`;
+
+            // 获取真实结果数据
+            currentResults = ExamSystem.ResultManager.getResultsByExam(examId);
+
+            // 更新及格线
+            document.getElementById('stat-passscore').innerHTML =
+                `${exam.pass_score || 60}<span class="stat-mini-unit"> 分</span>`;
+
+            if (currentResults.length === 0) {
+                // 没有真实数据，显示提示
+                document.getElementById('stat-total').innerHTML = '0<span class="stat-mini-unit"> 人</span>';
+                document.getElementById('stat-avg').innerHTML = '0<span class="stat-mini-unit"> 分</span>';
+                document.getElementById('stat-max').innerHTML = '0<span class="stat-mini-unit"> 分</span>';
+                document.getElementById('stat-min').innerHTML = '0<span class="stat-mini-unit"> 分</span>';
+                document.getElementById('stat-passrate').innerHTML = '0<span class="stat-mini-unit">%</span>';
+                document.getElementById('ranking-tbody').innerHTML =
+                    '<tr><td colspan="9" style="text-align:center;padding:40px;color:#9ca3af;">该考试暂无答题记录，等待考生提交后将显示真实数据</td></tr>';
+                renderScoreDistChart([]);
+                renderTypeAccuracyChart(null);
+                return;
+            }
+
+            // 计算统计（只统计已阅卷完成的成绩，未阅卷结果不计入通过率）
+            const scores = currentResults.map(r => r.score || 0);
+            const reviewedOnly = currentResults.filter(r => r.reviewCompleted !== false);
+            const passed = reviewedOnly.filter(r => r.passed === true);
+            const pendingReview = currentResults.filter(r => r.reviewCompleted === false);
+            const avgScore = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
+            const maxScore = Math.max(...scores);
+            const minScore = Math.min(...scores);
+            const passRate = reviewedOnly.length > 0
+                ? Math.round((passed.length / reviewedOnly.length) * 100)
+                : 0;
+
+            document.getElementById('stat-total').innerHTML = `${currentResults.length}<span class="stat-mini-unit"> 人</span>`;
+            document.getElementById('stat-avg').innerHTML = `${avgScore}<span class="stat-mini-unit"> 分</span>`;
+            document.getElementById('stat-max').innerHTML = `${maxScore}<span class="stat-mini-unit"> 分</span>`;
+            document.getElementById('stat-min').innerHTML = `${minScore}<span class="stat-mini-unit"> 分</span>`;
+            document.getElementById('stat-passrate').innerHTML = `${passRate}<span class="stat-mini-unit">%</span>`;
+
+            // 渲染排行榜和图表
+            renderRanking();
+            renderScoreDistChart(scores);
+            renderTypeAccuracyChart(currentResults);
+        }
+
+        function resetStats() {
+            document.getElementById('stat-total').innerHTML = '0<span class="stat-mini-unit"> 人</span>';
+            document.getElementById('stat-avg').innerHTML = '0<span class="stat-mini-unit"> 分</span>';
+            document.getElementById('stat-max').innerHTML = '0<span class="stat-mini-unit"> 分</span>';
+            document.getElementById('stat-min').innerHTML = '0<span class="stat-mini-unit"> 分</span>';
+            document.getElementById('stat-passrate').innerHTML = '0<span class="stat-mini-unit">%</span>';
+            document.getElementById('ranking-tbody').innerHTML =
+                '<tr><td colspan="9" style="text-align:center;padding:40px;color:#9ca3af;">请选择考试查看成绩统计</td></tr>';
+            renderScoreDistChart([]);
+            renderTypeAccuracyChart(null);
+            currentResults = [];
+        }
+
+        // 渲染排行榜（真实数据）
+        function renderRanking() {
+            const tbody = document.getElementById('ranking-tbody');
+            const searchText = document.getElementById('ranking-search') ?
+                document.getElementById('ranking-search').value.toLowerCase() : '';
+            const statusFilter = document.getElementById('ranking-status-filter') ?
+                document.getElementById('ranking-status-filter').value : '';
+
+            let rankings = currentResults.map(r => ({
+                rank: 0,
+                name: r.realName || r.username || '未知',
+                employee_id: r.username || '',
+                department: r.department || '未填写',
+                score: r.score || 0,
+                reviewCompleted: r.reviewCompleted !== false,
+                time_spent: r.timeSpent ? Utils.formatTime(r.timeSpent) : '—',
+                submit_time: r.submittedAt || '—',
+                passed: r.passed,
+                resultId: r.id
+            }));
+
+            // 搜索过滤
+            if (searchText) {
+                rankings = rankings.filter(r =>
+                    r.name.toLowerCase().includes(searchText) || r.employee_id.toLowerCase().includes(searchText)
+                );
+            }
+            // 状态过滤
+            if (statusFilter === 'passed') {
+                rankings = rankings.filter(r => r.passed);
+            } else if (statusFilter === 'failed') {
+                rankings = rankings.filter(r => !r.passed);
+            }
+
+            // 排序
+            rankings.sort((a, b) => b.score - a.score);
+            rankings.forEach((r, i) => r.rank = i + 1);
+
+            if (rankings.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:40px;color:#9ca3af;">暂无符合条件的记录</td></tr>';
+                return;
+            }
+
+            let html = '';
+            rankings.forEach(r => {
+                const rankClass = r.rank <= 3 ? `rank-${r.rank}` : 'rank-normal';
+                const scoreClass = r.passed ? 'passed' : 'failed';
+                const statusBadge = r.passed === null
+                    ? '<span class="badge badge-warning">待阅卷</span>'
+                    : (r.passed ? '<span class="badge badge-success">已通过</span>' : '<span class="badge badge-danger">未通过</span>');
+                const reviewBadge = r.reviewCompleted
+                    ? '<span class="badge badge-success">已阅卷</span>'
+                    : '<span class="badge badge-warning">待阅卷</span>';
+                const scoreDisplay = r.reviewCompleted
+                    ? `${r.score}`
+                    : `${r.score}<span style="font-size:11px;color:#d97706;"> (客观)</span>`;
+                html += `
+                    <tr>
+                        <td><span class="rank-badge ${rankClass}">${r.rank}</span></td>
+                        <td style="font-weight:500;color:#1f2937;">${Utils.escapeHtml(r.name)}</td>
+                        <td style="font-size:13px;color:#6b7280;">${Utils.escapeHtml(r.employee_id)}</td>
+                        <td><span class="score-cell ${scoreClass}">${scoreDisplay}</span></td>
+                        <td>${reviewBadge}</td>
+                        <td style="font-size:13px;color:#6b7280;">${r.time_spent}</td>
+                        <td style="font-size:13px;color:#6b7280;">${Utils.escapeHtml(r.submit_time)}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <button class="action-btn action-edit" onclick="viewDetail(${r.resultId})" style="padding:4px 10px;border-radius:6px;font-size:12px;border:1px solid #c7d2fe;color:#4f46e5;background:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                                ${ICONS.eye}
+                                明细
+                            </button>
+                            <button class="action-btn" onclick="exportSingleScore(${r.resultId})" style="padding:4px 10px;border-radius:6px;font-size:12px;border:1px solid #bfdbfe;color:#2563eb;background:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                                ${ICONS.download}
+                                成绩单
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // 查看答题明细
+        function viewDetail(resultId) {
+            const result = ExamSystem.ResultManager.getResults().find(r => r.id === resultId);
+            if (!result) { Utils.toast('未找到记录', 'warning'); return; }
+
+            const exam = ExamSystem.ExamManager.getExam(parseInt(result.examId));
+            const examTitle = exam ? exam.title : '未知考试';
+            const correctCount = result.correctCount || 0;
+            const wrongCount = result.wrongCount || 0;
+            const totalQ = (result.results || []).length;
+            const reviewCompleted = result.reviewCompleted !== false;
+            const hasManualReview = result.manualReviewCount > 0;
+            const displayScore = ExamSystem.ResultManager.getDisplayScore(result);
+            const objectiveScore = result.objectiveScore !== undefined ? result.objectiveScore : (result.autoScore || 0);
+            const manualScore = displayScore - objectiveScore;
+
+            Utils.showModal(`
+                <div style="padding:28px;min-width:500px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:16px;">答题明细</h3>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+                        <div style="background:#f9fafb;padding:12px;border-radius:8px;">
+                            <div style="font-size:12px;color:#9ca3af;">考生</div>
+                            <div style="font-size:15px;font-weight:600;color:#1f2937;">${Utils.escapeHtml(result.realName || result.username)}</div>
+                        </div>
+                        <div style="background:#f9fafb;padding:12px;border-radius:8px;">
+                            <div style="font-size:12px;color:#9ca3af;">考试</div>
+                            <div style="font-size:14px;font-weight:500;color:#1f2937;">${Utils.escapeHtml(examTitle)}</div>
+                        </div>
+                        <div style="background:#f0fdf4;padding:12px;border-radius:8px;">
+                            <div style="font-size:12px;color:#9ca3af;">总分${reviewCompleted ? '（含阅卷）' : '（客观题）'}</div>
+                            <div style="font-size:20px;font-weight:700;color:#16a34a;">${displayScore} 分</div>
+                            ${hasManualReview ? `<div style="font-size:11px;color:#6b7280;margin-top:2px;">客观 ${objectiveScore} + 主观 ${reviewCompleted ? manualScore : '待评'}</div>` : ''}
+                        </div>
+                        <div style="background:#fef2f2;padding:12px;border-radius:8px;">
+                            <div style="font-size:12px;color:#9ca3af;">状态</div>
+                            <div style="font-size:15px;font-weight:600;color:${reviewCompleted ? (result.passed ? '#16a34a' : '#ef4444') : '#d97706'};">
+                                ${!reviewCompleted ? '待阅卷' : (result.passed ? '已通过' : '未通过')}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="font-size:13px;color:#6b7280;margin-bottom:8px;">
+                        答题统计：正确 ${correctCount} 题 / 错误 ${wrongCount} 题 / 共 ${totalQ} 题
+                        ${hasManualReview ? ` · 主观题 ${result.manualReviewCount} 道` : ''}
+                    </div>
+                    <div style="font-size:13px;color:#6b7280;margin-bottom:16px;">
+                        交卷时间：${result.submittedAt || '未知'}
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;">
+                        <button class="btn-primary" onclick="this.closest('.modal-overlay').remove()">关闭</button>
+                    </div>
+                </div>
+            `);
+        }
+
+        // 分数段分布图（真实数据）
+        function renderScoreDistChart(scores) {
+            if (scoreChart) scoreChart.dispose();
+            scoreChart = echarts.init(document.getElementById('score-dist-chart'));
+
+            const ranges = [0, 0, 0, 0, 0]; // 0-59, 60-69, 70-79, 80-89, 90-100
+            scores.forEach(s => {
+                if (s < 60) ranges[0]++;
+                else if (s < 70) ranges[1]++;
+                else if (s < 80) ranges[2]++;
+                else if (s < 90) ranges[3]++;
+                else ranges[4]++;
+            });
+
+            const option = {
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                grid: { left: '8%', right: '5%', bottom: '10%', top: '10%' },
+                xAxis: {
+                    type: 'category',
+                    data: ['0-59分', '60-69分', '70-79分', '80-89分', '90-100分'],
+                    axisLabel: { fontSize: 12, color: '#6b7280' },
+                    axisLine: { lineStyle: { color: '#e5e7eb' } }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: { fontSize: 12, color: '#6b7280' },
+                    splitLine: { lineStyle: { color: '#f3f4f6' } }
+                },
+                series: [{
+                    type: 'bar',
+                    data: [
+                        { value: ranges[0], itemStyle: { color: '#ef4444' } },
+                        { value: ranges[1], itemStyle: { color: '#f59e0b' } },
+                        { value: ranges[2], itemStyle: { color: '#3b82f6' } },
+                        { value: ranges[3], itemStyle: { color: '#4f46e5' } },
+                        { value: ranges[4], itemStyle: { color: '#10b981' } }
+                    ],
+                    barWidth: '50%',
+                    label: { show: true, position: 'top', fontSize: 12, color: '#6b7280', formatter: '{c}人' },
+                    itemStyle: { borderRadius: [6, 6, 0, 0] }
+                }]
+            };
+            scoreChart.setOption(option);
+        }
+
+        // 题型正确率图（真实数据）
+        function renderTypeAccuracyChart(results) {
+            if (typeChart) typeChart.dispose();
+            typeChart = echarts.init(document.getElementById('type-accuracy-chart'));
+
+            if (!results || results.length === 0) {
+                const option = {
+                    title: { text: '暂无数据', left: 'center', top: 'center', textStyle: { color: '#9ca3af', fontSize: 14 } }
+                };
+                typeChart.setOption(option);
+                return;
+            }
+
+            // 统计各题型的正确率
+            const typeStats = { single: { correct: 0, total: 0 }, multiple: { correct: 0, total: 0 }, judge: { correct: 0, total: 0 }, short: { correct: 0, total: 0 } };
+            results.forEach(r => {
+                if (!r.results) return;
+                r.results.forEach(item => {
+                    // 从 question 中获取题型，如果没有则跳过
+                    const q = item.question || {};
+                    const type = q.type || item.type;
+                    if (!type || !typeStats[type]) return;
+                    typeStats[type].total++;
+                    if (item.isCorrect) typeStats[type].correct++;
+                });
+            });
+
+            const chartData = [];
+            const typeNames = { single: '单选题', multiple: '多选题', judge: '判断题', short: '简答题' };
+            const typeColors = { single: '#3b82f6', multiple: '#9333ea', judge: '#10b981', short: '#f59e0b' };
+            Object.entries(typeStats).forEach(([type, stats]) => {
+                if (stats.total > 0) {
+                    const rate = Math.round((stats.correct / stats.total) * 100);
+                    chartData.push({ value: rate, name: typeNames[type] || type, itemStyle: { color: typeColors[type] || '#6b7280' } });
+                }
+            });
+
+            if (chartData.length === 0) {
+                const option = {
+                    title: { text: '暂无题型数据', left: 'center', top: 'center', textStyle: { color: '#9ca3af', fontSize: 14 } }
+                };
+                typeChart.setOption(option);
+            } else {
+                const option = {
+                    tooltip: { trigger: 'item', formatter: '{b}: {c}%' },
+                    legend: { bottom: 0, fontSize: 12, color: '#6b7280' },
+                    series: [{
+                        type: 'pie',
+                        radius: ['45%', '70%'],
+                        center: ['50%', '45%'],
+                        avoidLabelOverlap: false,
+                        itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
+                        label: { show: true, fontSize: 13, formatter: '{b}\n{c}%' },
+                        data: chartData
+                    }]
+                };
+                typeChart.setOption(option);
+            }
+        }
+
+        // 导出成绩单（真实数据）
+        function exportScoreReport() {
+            if (currentResults.length === 0) {
+                Utils.toast('当前没有可导出的成绩数据', 'warning');
+                return;
+            }
+            const examSelect = document.getElementById('exam-select');
+            const examTitle = examSelect.options[examSelect.selectedIndex].text;
+
+            const scores = currentResults.map(r => ({
+                rank: 0,
+                name: r.realName || r.username || '未知',
+                employee_id: r.username || '',
+                department: r.department || '未填写',
+                score: r.score || 0,
+                passed: r.passed,
+                time_spent: r.timeSpent ? Utils.formatTime(r.timeSpent) : '—',
+                submit_time: r.submittedAt || '—'
+            }));
+            scores.sort((a, b) => b.score - a.score);
+            scores.forEach((s, i) => s.rank = i + 1);
+
+            Utils.toast('正在生成成绩单...', 'info');
+            setTimeout(() => {
+                ExportUtil.exportScoresExcel(scores, examTitle);
+                Utils.toast('成绩单已导出', 'success');
+            }, 500);
+        }
+
+        // 导出单个考生成绩（真实数据）
+        function exportSingleScore(resultId) {
+            const result = ExamSystem.ResultManager.getResults().find(r => r.id === resultId);
+            if (!result) { Utils.toast('未找到该考生成绩', 'warning'); return; }
+
+            const exam = ExamSystem.ExamManager.getExam(parseInt(result.examId));
+            const examTitle = exam ? exam.title : '未知考试';
+
+            const scoreData = {
+                score: result.score || 0,
+                totalScore: result.totalScore || 100,
+                passed: result.passed,
+                passScore: exam ? (exam.pass_score || 60) : 60,
+                correctCount: result.correctCount || 0,
+                wrongCount: result.wrongCount || 0,
+                correctRate: result.totalScore ? Math.round((result.score / result.totalScore) * 100) : 0,
+                timeSpent: result.timeSpent || 0
+            };
+
+            ExportUtil.exportSingleScore(scoreData, examTitle, {
+                name: result.realName || result.username,
+                employeeId: result.username,
+                department: result.department || '未填写'
+            });
+            Utils.toast(`${result.realName || result.username} 的成绩单已导出`, 'success');
+        }
+
+        // 初始化
+        initProjectFilter();
+        onProjectChange();
+    </script>
+</body>
+</html>

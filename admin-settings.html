@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统设置 - 企业培训考试系统</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .admin-layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 240px; background: #fff; border-right: 1px solid #e5e7eb; padding: 20px 16px; position: fixed; top: 0; bottom: 0; left: 0; z-index: 100; display: flex; flex-direction: column; }
+        .sidebar-brand { display: flex; align-items: center; gap: 12px; padding: 8px 12px 24px; border-bottom: 1px solid #f3f4f6; margin-bottom: 16px; }
+        .sidebar-brand-icon { width: 36px; height: 36px; background: linear-gradient(135deg, #4f46e5, #7c3aed); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+        .sidebar-brand-text { font-size: 15px; font-weight: 700; color: #1f2937; }
+        .sidebar-brand-sub { font-size: 11px; color: #9ca3af; }
+        .sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .sidebar-section-label { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; padding: 16px 16px 8px; letter-spacing: 0.5px; }
+        .sidebar-footer { padding-top: 16px; border-top: 1px solid #f3f4f6; }
+        .main-area { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .top-bar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0 28px; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+        .top-bar-title { font-size: 18px; font-weight: 600; color: #1f2937; }
+        .top-bar-right { display: flex; align-items: center; gap: 16px; }
+        .admin-user { display: flex; align-items: center; gap: 10px; padding: 4px 12px; border-radius: 30px; background: #f3f4f6; cursor: pointer; }
+        .admin-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
+        .admin-name { font-size: 14px; font-weight: 500; color: #374151; }
+        .admin-role { font-size: 11px; color: #9ca3af; }
+        .content-area { padding: 28px; flex: 1; }
+
+        /* 设置 Tab */
+        .settings-tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 1px solid #e5e7eb; }
+        .settings-tab { padding: 12px 24px; font-size: 14px; font-weight: 500; color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+        .settings-tab:hover { color: #4f46e5; }
+        .settings-tab.active { color: #4f46e5; border-bottom-color: #4f46e5; }
+
+        .settings-panel { display: none; }
+        .settings-panel.active { display: block; animation: fadeIn 0.3s; }
+
+        /* 卡片 */
+        .settings-card { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .settings-card-title { font-size: 16px; font-weight: 600; color: #1f2937; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .settings-card-title::before { content: ''; width: 4px; height: 20px; background: #4f46e5; border-radius: 2px; }
+
+        /* 开关 */
+        .switch-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #f3f4f6; }
+        .switch-row:last-child { border-bottom: none; }
+        .switch-info { flex: 1; }
+        .switch-title { font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 4px; }
+        .switch-desc { font-size: 12px; color: #9ca3af; }
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .switch-slider { position: absolute; cursor: pointer; inset: 0; background: #d1d5db; border-radius: 24px; transition: 0.3s; }
+        .switch-slider:before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
+        .switch input:checked + .switch-slider { background: #4f46e5; }
+        .switch input:checked + .switch-slider:before { transform: translateX(20px); }
+
+        /* 管理员表格 */
+        .role-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+        .role-super { background: #fef3c7; color: #92400e; }
+        .role-admin { background: #dbeafe; color: #2563eb; }
+        .role-reviewer { background: #dcfce7; color: #16a34a; }
+
+        .action-btn { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; border: 1px solid; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px; }
+        .action-edit { border-color: #c7d2fe; color: #4f46e5; background: #fff; }
+        .action-edit:hover { background: #eef2ff; }
+        .action-delete { border-color: #fecaca; color: #ef4444; background: #fff; }
+        .action-delete:hover { background: #fef2f2; }
+
+        /* 项目权限多选 */
+        .project-perm-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .project-perm-item { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer; font-size: 13px; }
+        .project-perm-item:hover { border-color: #4f46e5; }
+        .project-perm-item input { accent-color: #4f46e5; }
+
+        /* 分类标签 */
+        .category-tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; border: 1px solid #e5e7eb; background: #fff; color: #374151; margin-bottom: 8px; margin-right: 8px; }
+        .category-tag .remove { color: #ef4444; cursor: pointer; font-size: 14px; }
+
+        .form-row { display: flex; gap: 16px; }
+        .form-row .form-group { flex: 1; }
+        .form-group { margin-bottom: 16px; }
+        .form-label { display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px; }
+        .input-field { width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s; box-sizing: border-box; }
+        .input-field:focus { border-color: #4f46e5; }
+        select.input-field { height: 42px; }
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                </div>
+                <div>
+                    <div class="sidebar-brand-text">考试系统</div>
+                    <div class="sidebar-brand-sub">管理后台</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="sidebar-section-label">主要功能</div>
+                <a href="admin-dashboard.html" class="sidebar-link">${ICONS.dashboard} 数据看板</a>
+                <a href="admin-questions.html" class="sidebar-link">${ICONS.question} 题库管理</a>
+                <a href="admin-exams.html" class="sidebar-link">${ICONS.exam} 考试管理</a>
+                <a href="admin-statistics.html" class="sidebar-link">${ICONS.chart} 成绩统计</a>
+                <a href="admin-users.html" class="sidebar-link">${ICONS.users} 人员管理</a>
+                <a href="admin-review.html" class="sidebar-link">${ICONS.fileCheck} 阅卷中心</a>
+                <div class="sidebar-section-label">系统</div>
+                <a href="admin-settings.html" class="sidebar-link active">${ICONS.settings} 系统设置</a>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="index.html" class="sidebar-link" style="color:#ef4444;">${ICONS.logout} 退出登录</a>
+            </div>
+        </aside>
+
+        <div class="main-area">
+            <header class="top-bar">
+                <div class="top-bar-title">系统设置</div>
+                <div class="top-bar-right">
+                    <div class="admin-user">
+                        <div class="admin-avatar" id="topbar-avatar">管</div>
+                        <div>
+                            <div class="admin-name" id="topbar-name">管理员</div>
+                            <div class="admin-role" id="topbar-role">管理员</div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area fade-in">
+                <!-- 演示环境安全警示 -->
+                <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;font-size:13px;color:#92400e;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <div><strong>演示环境安全提示</strong> — 当前系统为纯前端架构，管理员密码以明文存储于浏览器 localStorage 中。请勿在正式环境中使用，或输入真实密码。后续将接入后端 API 实现安全的哈希存储。</div>
+                </div>
+
+                <!-- Tab 导航 -->
+                <div class="settings-tabs">
+                    <div class="settings-tab active" data-tab="admins" onclick="switchTab('admins')">管理员管理</div>
+                    <div class="settings-tab" data-tab="departments" onclick="switchTab('departments')">部门管理</div>
+                    <div class="settings-tab" data-tab="modules" onclick="switchTab('modules')">功能模块</div>
+                    <div class="settings-tab" data-tab="categories" onclick="switchTab('categories')">题目分类</div>
+                    <div class="settings-tab" data-tab="exam" onclick="switchTab('exam')">考试设置</div>
+                </div>
+
+                <!-- 管理员管理 -->
+                <div class="settings-panel active" id="panel-admins">
+                    <div class="settings-card">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                            <div class="settings-card-title" style="margin-bottom:0;">管理员列表</div>
+                            <button class="btn-primary" onclick="showAddAdminModal()" style="font-size:13px;padding:8px 16px;">${ICONS.plus}新增管理员</button>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:60px;">ID</th>
+                                    <th>用户名</th>
+                                    <th>姓名</th>
+                                    <th style="width:100px;">角色</th>
+                                    <th>项目权限</th>
+                                    <th style="width:80px;">状态</th>
+                                    <th style="width:140px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-tbody"></tbody>
+                        </table>
+                    </div>
+                    <div class="settings-card" style="background:#f0f4ff;">
+                        <div style="font-size:13px;color:#4f46e5;line-height:1.8;">
+                            <strong>角色说明：</strong><br>
+                            • <span class="role-badge role-super">超级管理员</span> 可访问所有项目和全部功能模块，可管理系统设置<br>
+                            • <span class="role-badge role-admin">管理员</span> 仅可访问被授权的项目和功能模块<br>
+                            • <span class="role-badge role-reviewer">阅卷员</span> 仅可访问阅卷中心，对简答题进行打分
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 部门管理 -->
+                <div class="settings-panel" id="panel-departments">
+                    <div class="settings-card">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                            <div class="settings-card-title" style="margin-bottom:0;">部门架构管理</div>
+                            <button class="btn-primary" onclick="showAddDeptModal()" style="font-size:13px;padding:8px 16px;">${ICONS.plus}新增部门</button>
+                        </div>
+                        <p style="font-size:13px;color:#6b7280;margin-bottom:16px;">支持三级部门架构：一级部门 &gt; 二级部门 &gt; 三级部门。人员管理、数据看板将按此架构进行统计。</p>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:60px;">ID</th>
+                                    <th style="width:120px;">级别</th>
+                                    <th>部门名称</th>
+                                    <th>上级部门</th>
+                                    <th style="width:140px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dept-tbody"></tbody>
+                        </table>
+                    </div>
+                    <div class="settings-card" style="background:#f0fdf4;">
+                        <div style="font-size:13px;color:#166534;line-height:1.8;">
+                            <strong>部门架构说明：</strong><br>
+                            • 一级部门：公司顶层组织架构，如「产品研发部」「市场营销部」<br>
+                            • 二级部门：一级部门下的分组，如「前端组」「视频二部」<br>
+                            • 三级部门：二级部门下的小组，可根据实际需要配置
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 功能模块 -->
+                <div class="settings-panel" id="panel-modules">
+                    <div class="settings-card">
+                        <div class="settings-card-title">功能模块开关</div>
+                        <p style="font-size:13px;color:#6b7280;margin-bottom:16px;">开启或关闭系统中的功能模块，关闭后侧边栏将不显示该入口</p>
+                        <div id="modules-list"></div>
+                    </div>
+                </div>
+
+                <!-- 题目分类 -->
+                <div class="settings-panel" id="panel-categories">
+                    <div class="settings-card">
+                        <div class="settings-card-title">题目分类管理</div>
+                        <p style="font-size:13px;color:#6b7280;margin-bottom:16px;">系统默认分为「公共红线考试」和「项目红线考试」两大类，也可根据需要添加更多分类</p>
+                        <div id="category-list" style="margin-bottom:16px;"></div>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <input type="text" class="input-field" id="new-category-name" placeholder="输入新分类名称..." style="flex:1;">
+                            <button class="btn-primary" onclick="addCategory()" style="font-size:13px;padding:8px 16px;white-space:nowrap;">${ICONS.plus}添加分类</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 考试设置 -->
+                <div class="settings-panel" id="panel-exam">
+                    <div class="settings-card">
+                        <div class="settings-card-title">考试默认设置</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">默认及格线（分）</label>
+                                <input type="number" class="input-field" id="default-pass-score" min="0" max="100">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">默认考试时长（分钟）</label>
+                                <input type="number" class="input-field" id="default-duration" min="10" max="300">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">最大切屏次数</label>
+                                <input type="number" class="input-field" id="max-cheat-count" min="0" max="10">
+                            </div>
+                        </div>
+                        <div class="switch-row">
+                            <div class="switch-info">
+                                <div class="switch-title">开启切屏检测</div>
+                                <div class="switch-desc">检测考生切换浏览器标签页的行为</div>
+                            </div>
+                            <label class="switch"><input type="checkbox" id="enable-anti-cheat"><span class="switch-slider"></span></label>
+                        </div>
+                        <div class="switch-row">
+                            <div class="switch-info">
+                                <div class="switch-title">乱序出题</div>
+                                <div class="switch-desc">每个考生的题目顺序和选项顺序随机打乱</div>
+                            </div>
+                            <label class="switch"><input type="checkbox" id="enable-shuffle"><span class="switch-slider"></span></label>
+                        </div>
+                        <div style="margin-top:20px;">
+                            <button class="btn-primary" onclick="saveExamSettings()">保存设置</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        (function(){var u=Utils.getLocal('current_user');if(u&&u.real_name){document.getElementById('topbar-name').textContent=u.real_name;document.getElementById('topbar-avatar').textContent=u.real_name.charAt(0);var r=u.department?u.department+' · ':'',s=u.role==='admin'?'管理员':(u.role||'');document.getElementById('topbar-role').textContent=r+s;}})();
+    </script>
+    <script>
+        // Tab 切换
+        function switchTab(tab) {
+            document.querySelectorAll('.settings-tab').forEach(t => {
+                t.classList.toggle('active', t.dataset.tab === tab);
+            });
+            document.querySelectorAll('.settings-panel').forEach(p => {
+                p.classList.toggle('active', p.id === 'panel-' + tab);
+            });
+            if (tab === 'admins') renderAdmins();
+            if (tab === 'departments') renderDepartments();
+            if (tab === 'modules') renderModules();
+            if (tab === 'categories') renderCategories();
+            if (tab === 'exam') loadExamSettings();
+        }
+
+        // ========== 管理员管理 ==========
+        function renderAdmins() {
+            const tbody = document.getElementById('admin-tbody');
+            const admins = ExamSystem.AdminManager.getAdmins();
+            let html = '';
+            admins.forEach(a => {
+                const roleClass = a.role === 'super_admin' ? 'role-super' : a.role === 'reviewer' ? 'role-reviewer' : 'role-admin';
+                const projectHtml = a.role === 'super_admin'
+                    ? '<span style="font-size:12px;color:#9ca3af;">所有项目</span>'
+                    : (a.project_ids && a.project_ids.length > 0
+                        ? a.project_ids.map(pid => `<span style="display:inline-block;padding:2px 8px;border-radius:4px;background:#f3f4f6;font-size:11px;margin-right:4px;">${Utils.escapeHtml(ExamSystem.ProjectManager.projectName(pid))}</span>`).join('')
+                        : '<span style="font-size:12px;color:#ef4444;">未授权</span>');
+                html += `
+                    <tr>
+                        <td style="color:#9ca3af;font-size:13px;">#${a.id}</td>
+                        <td style="font-weight:500;">${Utils.escapeHtml(a.username)}</td>
+                        <td>${Utils.escapeHtml(a.real_name)}</td>
+                        <td><span class="role-badge ${roleClass}">${ExamSystem.AdminManager.roleText(a.role)}</span></td>
+                        <td>${projectHtml}</td>
+                        <td><span class="badge ${a.status === 'active' ? 'badge-success' : 'badge-gray'}">${a.status === 'active' ? '启用' : '禁用'}</span></td>
+                        <td>
+                            <button class="action-btn action-edit" onclick="editAdmin(${a.id})">${ICONS.edit}编辑</button>
+                            ${a.role !== 'super_admin' ? `<button class="action-btn action-delete" onclick="deleteAdmin(${a.id})">${ICONS.trash}删除</button>` : ''}
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // ========== 部门管理 ==========
+        function renderDepartments() {
+            const tbody = document.getElementById('dept-tbody');
+            const depts = ExamSystem.DepartmentManager.getDepartments();
+            const deptsByLevel = depts.sort((a, b) => a.level - b.level || a.id - b.id);
+
+            let html = '';
+            deptsByLevel.forEach(d => {
+                const parent = d.parentId ? ExamSystem.DepartmentManager.getDepartment(d.parentId) : null;
+                const levelText = d.level === 1 ? '一级部门' : d.level === 2 ? '二级部门' : '三级部门';
+                html += `
+                    <tr>
+                        <td style="color:#9ca3af;font-size:13px;">#${d.id}</td>
+                        <td><span class="badge ${d.level === 1 ? 'badge-purple' : d.level === 2 ? 'badge-info' : 'badge-gray'}">${levelText}</span></td>
+                        <td style="font-weight:500;">${Utils.escapeHtml(d.name)}</td>
+                        <td style="font-size:13px;color:#6b7280;">${parent ? Utils.escapeHtml(parent.name) : '—'}</td>
+                        <td>
+                            <button class="action-btn action-edit" onclick="editDept(${d.id})">${ICONS.edit}编辑</button>
+                            <button class="action-btn action-delete" onclick="deleteDept(${d.id})">${ICONS.trash}删除</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            if (deptsByLevel.length === 0) {
+                html = '<tr><td colspan="5" style="text-align:center;padding:40px;color:#9ca3af;">暂无部门配置，请先新增部门</td></tr>';
+            }
+            tbody.innerHTML = html;
+        }
+
+        function showAddDeptModal(editId) {
+            const existing = editId ? ExamSystem.DepartmentManager.getDepartment(editId) : null;
+            const level1 = ExamSystem.DepartmentManager.getByLevel(1);
+            const level2 = ExamSystem.DepartmentManager.getByLevel(2);
+
+            const overlay = Utils.showModal(`
+                <div style="padding:28px;min-width:400px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:24px;">${existing ? '编辑部门' : '新增部门'}</h3>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">部门级别 <span style="color:#ef4444;">*</span></label>
+                            <select class="input-field" id="dept-level" onchange="onDeptLevelChange()">
+                                <option value="1" ${existing && existing.level === 1 ? 'selected' : ''}>一级部门</option>
+                                <option value="2" ${existing && existing.level === 2 ? 'selected' : ''}>二级部门</option>
+                                <option value="3" ${existing && existing.level === 3 ? 'selected' : ''}>三级部门</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">部门名称 <span style="color:#ef4444;">*</span></label>
+                            <input type="text" class="input-field" id="dept-name" value="${existing ? Utils.escapeAttr(existing.name) : ''}" placeholder="请输入部门名称">
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="dept-parent-section" style="${existing && existing.level === 1 ? 'display:none;' : ''}">
+                        <label class="form-label">上级部门 <span style="color:#ef4444;">*</span></label>
+                        <select class="input-field" id="dept-parent">
+                            <option value="">请选择上级部门</option>
+                            ${level1.map(d => `<option value="${Utils.escapeAttr(d.id)}" ${existing && existing.parentId === d.id ? 'selected' : ''}>${Utils.escapeHtml(d.name)}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:24px;">
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" onclick="saveDept(${editId || 0})">${existing ? '保存修改' : '新增部门'}</button>
+                    </div>
+                </div>
+            `);
+
+            if (existing) onDeptLevelChange();
+        }
+
+        function onDeptLevelChange() {
+            const level = parseInt(document.getElementById('dept-level').value, 10);
+            const parentSection = document.getElementById('dept-parent-section');
+            const parentSelect = document.getElementById('dept-parent');
+            if (!parentSection || !parentSelect) return;
+
+            if (level === 1) {
+                parentSection.style.display = 'none';
+                parentSelect.innerHTML = '<option value="">无上级部门</option>';
+                return;
+            }
+
+            parentSection.style.display = 'block';
+            const parentLevel = level - 1;
+            const parents = ExamSystem.DepartmentManager.getByLevel(parentLevel);
+            parentSelect.innerHTML = '<option value="">请选择上级部门</option>' + parents.map(d =>
+                `<option value="${Utils.escapeAttr(d.id)}">${Utils.escapeHtml(d.name)}</option>`
+            ).join('');
+        }
+
+        function saveDept(editId) {
+            const level = parseInt(document.getElementById('dept-level').value, 10);
+            const name = document.getElementById('dept-name').value.trim();
+            const parentId = document.getElementById('dept-parent').value ? parseInt(document.getElementById('dept-parent').value, 10) : null;
+
+            if (!name) { Utils.toast('请输入部门名称', 'error'); return; }
+            if (level !== 1 && !parentId) { Utils.toast('请选择上级部门', 'error'); return; }
+
+            if (editId) {
+                ExamSystem.DepartmentManager.updateDepartment(editId, { name, level, parentId });
+                Utils.toast('部门信息已更新', 'success');
+            } else {
+                ExamSystem.DepartmentManager.addDepartment({ name, level, parentId });
+                Utils.toast('部门新增成功', 'success');
+            }
+            Utils.closeModal(document.querySelector('.modal-overlay'));
+            renderDepartments();
+        }
+
+        function editDept(id) {
+            showAddDeptModal(id);
+        }
+
+        function deleteDept(id) {
+            const dept = ExamSystem.DepartmentManager.getDepartment(id);
+            Utils.confirm(`确定要删除部门「${Utils.escapeHtml(dept.name)}」吗？删除后将无法恢复。`, () => {
+                const res = ExamSystem.DepartmentManager.deleteDepartment(id);
+                if (res.success) {
+                    Utils.toast('部门已删除', 'success');
+                    renderDepartments();
+                } else {
+                    Utils.toast(res.msg, 'error');
+                }
+            }, '删除部门');
+        }
+
+        function showAddAdminModal(editId) {
+            const existing = editId ? ExamSystem.AdminManager.getAdmins().find(a => a.id === editId) : null;
+            const projects = ExamSystem.ProjectManager.getProjects().filter(p => p.status !== 'deleted');
+
+            const overlay = Utils.showModal(`
+                <div style="padding:28px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:24px;">${existing ? '编辑管理员' : '新增管理员'}</h3>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">用户名 <span style="color:#ef4444;">*</span></label>
+                            <input type="text" class="input-field" id="admin-username" value="${existing ? Utils.escapeAttr(existing.username) : ''}" placeholder="登录用户名" ${existing ? 'readonly' : ''}>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">姓名 <span style="color:#ef4444;">*</span></label>
+                            <input type="text" class="input-field" id="admin-realname" value="${existing ? Utils.escapeAttr(existing.real_name) : ''}" placeholder="真实姓名">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">密码 ${existing ? '' : '<span style="color:#ef4444;">*</span>'}</label>
+                            <input type="password" class="input-field" id="admin-password" value="" placeholder="${existing ? '留空则不修改密码' : '登录密码'}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">角色 <span style="color:#ef4444;">*</span></label>
+                            <select class="input-field" id="admin-role">
+                                <option value="admin" ${existing && existing.role === 'admin' ? 'selected' : ''}>管理员（指定项目权限）</option>
+                                <option value="reviewer" ${existing && existing.role === 'reviewer' ? 'selected' : ''}>阅卷员（仅阅卷）</option>
+                                <option value="super_admin" ${existing && existing.role === 'super_admin' ? 'selected' : ''}>超级管理员（全部权限）</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="project-perm-section">
+                        <label class="form-label">项目权限（管理员角色需选择）</label>
+                        <div class="project-perm-list">
+                            ${projects.map(p => `
+                                <label class="project-perm-item">
+                                    <input type="checkbox" value="${Utils.escapeAttr(p.id)}" class="admin-project-checkbox" ${existing && existing.project_ids && existing.project_ids.includes(p.id) ? 'checked' : ''}> ${Utils.escapeHtml(p.name)}
+                                </label>
+                            `).join('')}
+                        </div>
+                        <div style="font-size:12px;color:#9ca3af;margin-top:6px;">超级管理员自动拥有所有项目权限</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">可访问功能模块</label>
+                        <div class="project-perm-list">
+                            <label class="project-perm-item"><input type="checkbox" value="dashboard" class="admin-module-checkbox" ${existing && existing.modules && existing.modules.includes('dashboard') ? 'checked' : ''}> 数据看板</label>
+                            <label class="project-perm-item"><input type="checkbox" value="questions" class="admin-module-checkbox" ${existing && existing.modules && existing.modules.includes('questions') ? 'checked' : ''}> 题库管理</label>
+                            <label class="project-perm-item"><input type="checkbox" value="exams" class="admin-module-checkbox" ${existing && existing.modules && existing.modules.includes('exams') ? 'checked' : ''}> 考试管理</label>
+                            <label class="project-perm-item"><input type="checkbox" value="statistics" class="admin-module-checkbox" ${existing && existing.modules && existing.modules.includes('statistics') ? 'checked' : ''}> 成绩统计</label>
+                            <label class="project-perm-item"><input type="checkbox" value="users" class="admin-module-checkbox" ${existing && existing.modules && existing.modules.includes('users') ? 'checked' : ''}> 人员管理</label>
+                            <label class="project-perm-item"><input type="checkbox" value="review" class="admin-module-checkbox" ${existing && existing.modules && existing.modules.includes('review') ? 'checked' : ''}> 阅卷中心</label>
+                            <label class="project-perm-item"><input type="checkbox" value="settings" class="admin-module-checkbox" ${existing && existing.modules && existing.modules.includes('settings') ? 'checked' : ''}> 系统设置</label>
+                        </div>
+                    </div>
+
+                    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:24px;">
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" onclick="saveAdmin(${editId || 'null'}, this)">${existing ? '保存修改' : '创建管理员'}</button>
+                    </div>
+                </div>
+            `);
+
+            // 角色切换时控制项目权限区域显示
+            const roleSelect = overlay.querySelector('#admin-role');
+            const permSection = overlay.querySelector('#project-perm-section');
+            const togglePerm = () => {
+                permSection.style.display = roleSelect.value === 'super_admin' ? 'none' : 'block';
+            };
+            roleSelect.addEventListener('change', togglePerm);
+            togglePerm();
+        }
+
+        function saveAdmin(editId, btn) {
+            const username = document.getElementById('admin-username').value.trim();
+            const realName = document.getElementById('admin-realname').value.trim();
+            const password = document.getElementById('admin-password').value.trim();
+            const role = document.getElementById('admin-role').value;
+            const projectIds = Array.from(document.querySelectorAll('.admin-project-checkbox:checked')).map(cb => parseInt(cb.value));
+            const modules = Array.from(document.querySelectorAll('.admin-module-checkbox:checked')).map(cb => cb.value);
+
+            if (!username || !realName) {
+                Utils.toast('请填写用户名和姓名', 'warning');
+                return;
+            }
+            if (!editId && !password) {
+                Utils.toast('请设置密码', 'warning');
+                return;
+            }
+
+            const data = { username, real_name: realName, role, project_ids: projectIds, modules };
+            // 仅在输入了密码时才更新密码（编辑模式留空不修改）
+            if (password) data.password = password;
+
+            if (editId) {
+                ExamSystem.AdminManager.updateAdmin(editId, data);
+                Utils.toast('管理员信息已更新', 'success');
+            } else {
+                if (ExamSystem.AdminManager.getAdmins().some(a => a.username === username)) {
+                    Utils.toast('用户名已存在', 'warning');
+                    return;
+                }
+                ExamSystem.AdminManager.addAdmin(data);
+                Utils.toast('管理员创建成功', 'success');
+            }
+
+            Utils.closeModal(btn.closest('.modal-overlay'));
+            renderAdmins();
+        }
+
+        function editAdmin(id) {
+            showAddAdminModal(id);
+        }
+
+        function deleteAdmin(id) {
+            Utils.confirm('确定要删除此管理员吗？', () => {
+                ExamSystem.AdminManager.deleteAdmin(id);
+                Utils.toast('管理员已删除', 'success');
+                renderAdmins();
+            }, '删除确认');
+        }
+
+        // ========== 功能模块 ==========
+        function renderModules() {
+            const settings = ExamSystem.SettingsManager.getSettings();
+            const list = document.getElementById('modules-list');
+            list.innerHTML = Object.entries(settings.modules).map(([key, mod]) => `
+                <div class="switch-row">
+                    <div class="switch-info">
+                        <div class="switch-title">${Utils.escapeHtml(mod.name)}</div>
+                        <div class="switch-desc">模块标识：${key}</div>
+                    </div>
+                    <label class="switch"><input type="checkbox" ${mod.enabled ? 'checked' : ''} onchange="toggleModule('${key}', this.checked)"><span class="switch-slider"></span></label>
+                </div>
+            `).join('');
+        }
+
+        function toggleModule(key, enabled) {
+            ExamSystem.SettingsManager.toggleModule(key, enabled);
+            Utils.toast(`${enabled ? '已开启' : '已关闭'}该模块`, 'info');
+        }
+
+        // ========== 题目分类 ==========
+        function renderCategories() {
+            const categories = ExamSystem.SettingsManager.getCategories();
+            const list = document.getElementById('category-list');
+            list.innerHTML = categories.map(c => `
+                <span class="category-tag">
+                    ${Utils.escapeHtml(c.name)}
+                    <span class="remove" onclick="deleteCategory(${c.id})">×</span>
+                </span>
+            `).join('');
+        }
+
+        function addCategory() {
+            const name = document.getElementById('new-category-name').value.trim();
+            if (!name) {
+                Utils.toast('请输入分类名称', 'warning');
+                return;
+            }
+            ExamSystem.SettingsManager.addCategory(name);
+            document.getElementById('new-category-name').value = '';
+            renderCategories();
+            Utils.toast('分类已添加', 'success');
+        }
+
+        function deleteCategory(id) {
+            ExamSystem.SettingsManager.deleteCategory(id);
+            renderCategories();
+            Utils.toast('分类已删除', 'success');
+        }
+
+        // ========== 考试设置 ==========
+        function loadExamSettings() {
+            const settings = ExamSystem.SettingsManager.getSettings();
+            document.getElementById('default-pass-score').value = settings.exam.defaultPassScore;
+            document.getElementById('default-duration').value = settings.exam.defaultDuration;
+            document.getElementById('max-cheat-count').value = settings.exam.maxCheatCount;
+            document.getElementById('enable-anti-cheat').checked = settings.exam.enableAntiCheat;
+            document.getElementById('enable-shuffle').checked = settings.exam.enableShuffle;
+        }
+
+        function saveExamSettings() {
+            const settings = ExamSystem.SettingsManager.getSettings();
+            settings.exam.defaultPassScore = parseInt(document.getElementById('default-pass-score').value) || 60;
+            settings.exam.defaultDuration = parseInt(document.getElementById('default-duration').value) || 60;
+            settings.exam.maxCheatCount = parseInt(document.getElementById('max-cheat-count').value) || 3;
+            settings.exam.enableAntiCheat = document.getElementById('enable-anti-cheat').checked;
+            settings.exam.enableShuffle = document.getElementById('enable-shuffle').checked;
+            Utils.saveLocal('system_settings', settings);
+            Utils.toast('考试设置已保存', 'success');
+        }
+
+        // 初始化
+        renderAdmins();
+    </script>
+</body>
+</html>

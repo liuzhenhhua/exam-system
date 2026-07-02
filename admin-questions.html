@@ -1,0 +1,1543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>题库管理 - 企业培训考试系统</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <style>
+        .admin-layout { display: flex; min-height: 100vh; }
+        .sidebar {
+            width: 240px; background: #fff; border-right: 1px solid #e5e7eb;
+            padding: 20px 16px; position: fixed; top: 0; bottom: 0; left: 0; z-index: 100;
+            display: flex; flex-direction: column;
+        }
+        .sidebar-brand { display: flex; align-items: center; gap: 12px; padding: 8px 12px 24px; border-bottom: 1px solid #f3f4f6; margin-bottom: 16px; }
+        .sidebar-brand-icon { width: 36px; height: 36px; background: linear-gradient(135deg, #4f46e5, #7c3aed); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+        .sidebar-brand-text { font-size: 15px; font-weight: 700; color: #1f2937; line-height: 1.3; }
+        .sidebar-brand-sub { font-size: 11px; color: #9ca3af; }
+        .sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .sidebar-section-label { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; padding: 16px 16px 8px; letter-spacing: 0.5px; }
+        .sidebar-footer { padding-top: 16px; border-top: 1px solid #f3f4f6; }
+        .main-area { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .top-bar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0 28px; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+        .top-bar-title { font-size: 18px; font-weight: 600; color: #1f2937; }
+        .top-bar-right { display: flex; align-items: center; gap: 16px; }
+        .icon-btn { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #6b7280; cursor: pointer; transition: all 0.2s; position: relative; }
+        .icon-btn:hover { background: #f3f4f6; color: #1f2937; }
+        .admin-user { display: flex; align-items: center; gap: 10px; padding: 4px 12px; border-radius: 30px; background: #f3f4f6; cursor: pointer; }
+        .admin-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
+        .admin-name { font-size: 14px; font-weight: 500; color: #374151; }
+        .admin-role { font-size: 11px; color: #9ca3af; }
+        .content-area { padding: 28px; flex: 1; }
+
+        /* 筛选栏 */
+        .filter-bar {
+            background: #fff; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px;
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .filter-select {
+            padding: 8px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px;
+            background: #fff; cursor: pointer; outline: none; transition: border-color 0.2s;
+        }
+        .filter-select:focus { border-color: #4f46e5; }
+        .search-box {
+            flex: 1; min-width: 200px; position: relative;
+        }
+        .search-box input {
+            width: 100%; padding: 8px 14px 8px 38px; border: 1px solid #d1d5db;
+            border-radius: 8px; font-size: 13px; outline: none; transition: border-color 0.2s;
+        }
+        .search-box input:focus { border-color: #4f46e5; }
+        .search-box .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af; }
+
+        /* 表格容器 */
+        .table-container {
+            background: #fff; border-radius: 12px; overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .table-container .data-table th { font-size: 12px; }
+        .question-content-cell {
+            max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .action-btn {
+            padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500;
+            border: 1px solid; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px;
+        }
+        .action-edit { border-color: #c7d2fe; color: #4f46e5; background: #fff; }
+        .action-edit:hover { background: #eef2ff; }
+        .action-delete { border-color: #fecaca; color: #ef4444; background: #fff; }
+        .action-delete:hover { background: #fef2f2; }
+
+        /* 分页 */
+        .pagination {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 20px; border-top: 1px solid #f3f4f6;
+        }
+        .pagination-info { font-size: 13px; color: #6b7280; }
+        .pagination-btns { display: flex; gap: 4px; }
+        .page-btn {
+            min-width: 32px; height: 32px; border-radius: 6px; border: 1px solid #e5e7eb;
+            background: #fff; color: #6b7280; font-size: 13px; cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .page-btn:hover { border-color: #4f46e5; color: #4f46e5; }
+        .page-btn.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+
+        /* 新增题目模态框 */
+        .question-form { padding: 28px; }
+        .form-section { margin-bottom: 20px; }
+        .form-label { display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px; }
+        .form-row { display: flex; gap: 16px; }
+        .form-row .form-group { flex: 1; }
+        .option-row {
+            display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+        }
+        .option-row .option-letter {
+            width: 28px; height: 28px; min-width: 28px; border-radius: 50%; border: 2px solid #d1d5db;
+            display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #6b7280;
+        }
+        .option-row .option-input {
+            flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none;
+        }
+        .option-row .option-input:focus { border-color: #4f46e5; }
+        .option-row .mark-correct {
+            width: 32px; height: 32px; min-width: 32px; border-radius: 8px; border: 2px solid #e5e7eb;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; color: #9ca3af; transition: all 0.2s;
+        }
+        .option-row .mark-correct.correct { border-color: #16a34a; color: #16a34a; background: #dcfce7; }
+        .option-row .remove-option { color: #9ca3af; cursor: pointer; padding: 4px; }
+        .option-row .remove-option:hover { color: #ef4444; }
+        .modal-content { max-width: 680px; }
+
+        .category-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+        .category-pill {
+            padding: 4px 14px; border-radius: 20px; font-size: 13px; font-weight: 500;
+            border: 1px solid #e5e7eb; background: #fff; color: #6b7280; cursor: pointer; transition: all 0.2s;
+        }
+        .category-pill:hover { border-color: #4f46e5; color: #4f46e5; }
+        .category-pill.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+
+        /* 题库作用域 Tab */
+        .scope-tabs {
+            display: flex; gap: 8px; margin-bottom: 20px;
+        }
+        .scope-tab {
+            padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 500;
+            border: 1px solid #e5e7eb; background: #fff; color: #6b7280; cursor: pointer; transition: all 0.2s;
+        }
+        .scope-tab:hover { border-color: #4f46e5; color: #4f46e5; }
+        .scope-tab.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+        .scope-tab .count { font-size: 12px; opacity: 0.8; margin-left: 4px; }
+
+        .project-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 12px; background: #fef3c7; color: #92400e; }
+        .public-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 12px; background: #e0e7ff; color: #3730a3; }
+
+        /* 项目卡片选择栏 */
+        .project-cards-bar {
+            display: flex; gap: 12px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px;
+        }
+        .project-cards-bar::-webkit-scrollbar { height: 4px; }
+        .project-cards-bar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+        .project-card {
+            min-width: 160px; padding: 16px; border-radius: 12px; border: 2px solid #e5e7eb;
+            background: #fff; cursor: pointer; transition: all 0.2s; flex-shrink: 0;
+            display: flex; flex-direction: column; gap: 4px;
+        }
+        .project-card:hover { border-color: #c7d2fe; box-shadow: 0 2px 8px rgba(79,70,229,0.1); }
+        .project-card.active { border-color: #4f46e5; background: linear-gradient(135deg, #eef2ff, #fff); }
+        .project-card-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 4px; }
+        .project-card-icon.all { background: #f3f4f6; color: #6b7280; }
+        .project-card-icon.pub { background: #e0e7ff; color: #4f46e5; }
+        .project-card-icon.proj { background: #fef3c7; color: #92400e; }
+        .project-card-icon.add { background: #f0fdf4; color: #16a34a; }
+        .project-card-name { font-size: 14px; font-weight: 600; color: #1f2937; white-space: nowrap; }
+        .project-card-count { font-size: 12px; color: #9ca3af; }
+        .project-card-code { font-size: 11px; color: #9ca3af; }
+
+        /* 导入预览编辑 */
+        .preview-item { transition: all 0.2s; }
+        .preview-item.editing { background: #f0f4ff; }
+        .preview-edit-btn { font-size: 11px; padding: 2px 8px; border-radius: 4px; border: 1px solid #c7d2fe; color: #4f46e5; background: #fff; cursor: pointer; }
+        .preview-edit-btn:hover { background: #eef2ff; }
+        .preview-edit-form { padding: 12px; background: #fff; border-radius: 8px; margin-top: 8px; border: 1px solid #e5e7eb; }
+        .preview-edit-form .form-row { gap: 8px; }
+        .preview-edit-form select, .preview-edit-form input, .preview-edit-form textarea {
+            padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; width: 100%;
+        }
+        .preview-edit-form textarea { resize: vertical; }
+
+        /* 题目图片 */
+        .question-image-thumb { max-width: 60px; max-height: 40px; border-radius: 4px; margin-left: 8px; vertical-align: middle; }
+        .image-upload-zone { border: 2px dashed #d1d5db; border-radius: 8px; padding: 12px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .image-upload-zone:hover { border-color: #4f46e5; background: #f5f3ff; }
+        .image-preview-container { position: relative; display: inline-block; margin-top: 8px; }
+        .image-preview-container img { max-width: 200px; max-height: 150px; border-radius: 8px; border: 1px solid #e5e7eb; }
+        .image-remove-btn { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; background: #ef4444; color: #fff; border: none; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                </div>
+                <div>
+                    <div class="sidebar-brand-text">考试系统</div>
+                    <div class="sidebar-brand-sub">管理后台</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="sidebar-section-label">主要功能</div>
+                <a href="admin-dashboard.html" class="sidebar-link">${ICONS.dashboard} 数据看板</a>
+                <a href="admin-questions.html" class="sidebar-link active">${ICONS.question} 题库管理</a>
+                <a href="admin-exams.html" class="sidebar-link">${ICONS.exam} 考试管理</a>
+                <a href="admin-statistics.html" class="sidebar-link">${ICONS.chart} 成绩统计</a>
+                <a href="admin-users.html" class="sidebar-link">${ICONS.users} 人员管理</a>
+                <a href="admin-review.html" class="sidebar-link">${ICONS.fileCheck} 阅卷中心</a>
+                <div class="sidebar-section-label">系统</div>
+                <a href="admin-settings.html" class="sidebar-link">${ICONS.settings} 系统设置</a>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="index.html" class="sidebar-link" style="color:#ef4444;">${ICONS.logout} 退出登录</a>
+            </div>
+        </aside>
+
+        <div class="main-area">
+            <header class="top-bar">
+                <div class="top-bar-title">题库管理</div>
+                <div class="top-bar-right">
+                    <button class="btn-secondary" onclick="showProjectManageModal()" style="font-size:13px;padding:8px 16px;display:flex;align-items:center;gap:6px;">${ICONS.building}项目管理</button>
+                    <div class="icon-btn" onclick="showImportModal()">
+                        ${ICONS.upload}
+                    </div>
+                    <div class="admin-user">
+                        <div class="admin-avatar" id="topbar-avatar">管</div>
+                        <div>
+                            <div class="admin-name" id="topbar-name">管理员</div>
+                            <div class="admin-role" id="topbar-role">管理员</div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area fade-in">
+                <!-- 项目卡片选择栏（项目优先布局） -->
+                <div class="project-cards-bar" id="project-cards-bar">
+                    <div class="project-card active" data-scope="all" data-project="" onclick="selectProjectCard(this)">
+                        <div class="project-card-icon all">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                        </div>
+                        <div class="project-card-name">全部题库</div>
+                        <div class="project-card-count" id="card-count-all">0 题</div>
+                    </div>
+                    <div class="project-card" data-scope="public" data-project="" onclick="selectProjectCard(this)">
+                        <div class="project-card-icon pub">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                        </div>
+                        <div class="project-card-name">公共题库</div>
+                        <div class="project-card-count" id="card-count-public">0 题</div>
+                    </div>
+                    <div id="dynamic-project-cards" style="display:contents;"></div>
+                    <div class="project-card" onclick="showProjectManageModal()" style="border-style:dashed;">
+                        <div class="project-card-icon add">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        </div>
+                        <div class="project-card-name">管理项目</div>
+                        <div class="project-card-count">添加/编辑</div>
+                    </div>
+                </div>
+
+                <div class="filter-bar">
+                    <select class="filter-select" id="filter-category" onchange="renderQuestions()">
+                        <option value="">全部分类</option>
+                    </select>
+                    <select class="filter-select" id="filter-type" onchange="renderQuestions()">
+                        <option value="">全部题型</option>
+                        <option value="single">单选题</option>
+                        <option value="multiple">多选题</option>
+                        <option value="judge">判断题</option>
+                        <option value="short">简答题</option>
+                    </select>
+                    <select class="filter-select" id="filter-difficulty" onchange="renderQuestions()">
+                        <option value="">全部难度</option>
+                        <option value="1">简单</option>
+                        <option value="2">中等</option>
+                        <option value="3">困难</option>
+                    </select>
+                    <div class="search-box">
+                        <span class="search-icon">${ICONS.search}</span>
+                        <input type="text" id="search-input" placeholder="搜索题干关键词..." oninput="renderQuestions()">
+                    </div>
+                    <!-- 批量操作按钮 -->
+                    <div id="batch-actions" style="display:none;gap:8px;align-items:center;">
+                        <button class="btn-secondary" onclick="showBatchEditModal()" style="font-size:13px;padding:6px 14px;">${ICONS.edit}批量编辑</button>
+                        <button class="action-btn action-delete" onclick="batchDelete()" style="font-size:13px;padding:6px 14px;">${ICONS.trash}批量删除</button>
+                        <span id="batch-count" style="font-size:13px;color:#4f46e5;font-weight:500;"></span>
+                    </div>
+                    <button class="btn-primary" onclick="showAddQuestionModal()">
+                        ${ICONS.plus}
+                        新增题目
+                    </button>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" style="accent-color:#4f46e5;"></th>
+                                <th style="width:60px;">ID</th>
+                                <th>题干</th>
+                                <th style="width:90px;">题型</th>
+                                <th style="width:80px;">难度</th>
+                                <th style="width:100px;">分类</th>
+                                <th style="width:110px;">所属</th>
+                                <th style="width:140px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="question-tbody"></tbody>
+                    </table>
+                    <div class="pagination">
+                        <div class="pagination-info" id="pagination-info">共 0 条记录</div>
+                        <div class="pagination-btns">
+                            <button class="page-btn">‹</button>
+                            <button class="page-btn active">1</button>
+                            <button class="page-btn">›</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        (function(){var u=Utils.getLocal('current_user');if(u&&u.real_name){document.getElementById('topbar-name').textContent=u.real_name;document.getElementById('topbar-avatar').textContent=u.real_name.charAt(0);var r=u.department?u.department+' · ':'',s=u.role==='admin'?'管理员':(u.role||'');document.getElementById('topbar-role').textContent=r+s;}})();
+    </script>
+    <script>
+        let currentScope = 'all';
+        let currentProjectId = null; // 当前选中的项目ID（用于项目卡片筛选）
+        let selectedQuestionIds = new Set(); // 批量选中的题目ID
+
+        // 填充分类筛选（从 SettingsManager 获取）
+        const categorySelect = document.getElementById('filter-category');
+        ExamSystem.SettingsManager.getCategories().forEach(cat => {
+            categorySelect.innerHTML += `<option value="${Utils.escapeAttr(cat.name)}">${Utils.escapeHtml(cat.name)}</option>`;
+        });
+
+        // 渲染项目卡片（项目优先布局）
+        function renderProjectCards() {
+            const container = document.getElementById('dynamic-project-cards');
+            const projects = ExamSystem.ProjectManager.getProjects().filter(p => p.status !== 'deleted');
+            container.innerHTML = projects.map(p => {
+                const count = ExamSystem.QuestionBankManager.getQuestions().filter(q =>
+                    q.status !== 'deleted' && q.scope === 'project' && String(q.project_id) === String(p.id)
+                ).length;
+                return `
+                    <div class="project-card" data-scope="project" data-project="${Utils.escapeAttr(p.id)}" onclick="selectProjectCard(this)">
+                        <div class="project-card-icon proj">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="9" y1="22" x2="9" y2="2"/><line x1="15" y1="22" x2="15" y2="2"/></svg>
+                        </div>
+                        <div class="project-card-name">${Utils.escapeHtml(p.name)}</div>
+                        <div class="project-card-count">${count} 题</div>
+                        <div class="project-card-code">${Utils.escapeHtml(p.code || '')}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 选择项目卡片
+        function selectProjectCard(card) {
+            currentScope = card.dataset.scope;
+            currentProjectId = card.dataset.project ? parseInt(card.dataset.project) : null;
+            document.querySelectorAll('.project-card').forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            renderQuestions();
+        }
+
+        // 兼容旧代码
+        function populateProjectFilter() {
+            renderProjectCards();
+        }
+
+        // 渲染题目列表
+        function renderQuestions() {
+            const tbody = document.getElementById('question-tbody');
+            const categoryFilter = document.getElementById('filter-category').value;
+            const typeFilter = document.getElementById('filter-type').value;
+            const difficultyFilter = document.getElementById('filter-difficulty').value;
+            const searchText = document.getElementById('search-input').value.toLowerCase();
+
+            let allQuestions = ExamSystem.QuestionBankManager.getQuestions().filter(q => q.status !== 'deleted');
+            let questions = allQuestions.filter(q => {
+                if (currentScope === 'public' && q.scope !== 'public') return false;
+                if (currentScope === 'project') {
+                    if (q.scope !== 'project') return false;
+                    if (currentProjectId && String(q.project_id) !== String(currentProjectId)) return false;
+                }
+                if (categoryFilter && q.category !== categoryFilter) return false;
+                if (typeFilter && q.type !== typeFilter) return false;
+                if (difficultyFilter && String(q.difficulty) !== difficultyFilter) return false;
+                if (searchText && !q.content.toLowerCase().includes(searchText)) return false;
+                return true;
+            });
+
+            updateCardCounts();
+            updatePaginationInfo(questions.length);
+
+            if (questions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#9ca3af;">暂无符合条件的题目</td></tr>';
+                updateBatchUI();
+                return;
+            }
+
+            let html = '';
+            questions.forEach(q => {
+                const typeBadge = q.type === 'single' ? 'badge-info' : q.type === 'multiple' ? 'badge-purple' : q.type === 'short' ? 'badge-warning' : 'badge-success';
+                const scopeHtml = q.scope === 'project'
+                    ? `<span class="project-badge">${ICONS.building}${Utils.escapeHtml(ExamSystem.ProjectManager.projectName(q.project_id))}</span>`
+                    : `<span class="public-badge">公共题库</span>`;
+                const isChecked = selectedQuestionIds.has(q.id) ? 'checked' : '';
+                html += `
+                    <tr>
+                        <td><input type="checkbox" class="q-checkbox" value="${Utils.escapeAttr(q.id)}" ${isChecked} onchange="toggleSelectQuestion(${q.id}, this.checked)" style="accent-color:#4f46e5;"></td>
+                        <td style="color:#9ca3af;font-size:13px;">#${String(q.id).padStart(4, '0')}</td>
+                        <td class="question-content-cell">${Utils.escapeHtml(q.content)}${q.image ? `<img src="${Utils.escapeAttr(q.image)}" class="question-image-thumb" alt="配图">` : ''}</td>
+                        <td><span class="badge ${typeBadge}">${Utils.questionTypeText(q.type)}</span></td>
+                        <td><span class="badge ${Utils.difficultyBadge(q.difficulty)}">${Utils.difficultyText(q.difficulty)}</span></td>
+                        <td style="font-size:13px;color:#6b7280;">${Utils.escapeHtml(q.category)}</td>
+                        <td>${scopeHtml}</td>
+                        <td>
+                            <button class="action-btn action-edit" onclick="editQuestion(${q.id})">
+                                ${ICONS.edit}
+                                编辑
+                            </button>
+                            <button class="action-btn action-delete" onclick="deleteQuestion(${q.id})">
+                                ${ICONS.trash}
+                                删除
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+            updateBatchUI();
+        }
+
+        function updateCardCounts() {
+            const all = ExamSystem.QuestionBankManager.getQuestions().filter(q => q.status !== 'deleted');
+            const pub = all.filter(q => !q.scope || q.scope === 'public').length;
+            document.getElementById('card-count-all').textContent = `${all.length} 题`;
+            document.getElementById('card-count-public').textContent = `${pub} 题`;
+            // 项目卡片计数也在 renderProjectCards 中更新
+        }
+
+        // 更新分页信息（动态显示实际题目数量）
+        function updatePaginationInfo(count) {
+            const info = document.getElementById('pagination-info');
+            if (info) {
+                info.textContent = `共 ${count} 条记录`;
+            }
+            // 简单分页：只显示第1页按钮（当前系统一次性加载所有题目）
+            const btns = document.querySelector('.pagination-btns');
+            if (btns) {
+                if (count === 0) {
+                    btns.innerHTML = '<button class="page-btn" disabled style="opacity:0.4;cursor:not-allowed;">无数据</button>';
+                } else {
+                    btns.innerHTML = '<button class="page-btn active">1</button>';
+                }
+            }
+        }
+
+        let editingQuestionId = null;
+
+        function showAddQuestionModal(questionId) {
+            editingQuestionId = questionId || null;
+            let existing = null;
+            if (questionId) {
+                existing = ExamSystem.QuestionBankManager.getQuestion(questionId);
+                if (!existing) { Utils.toast('题目不存在', 'error'); return; }
+            }
+
+            const overlay = Utils.showModal(`
+                <div class="question-form">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:24px;">${questionId ? '编辑题目' : '新增题目'}</h3>
+
+                    <div class="form-section">
+                        <label class="form-label">所属题库</label>
+                        <div style="display:flex;gap:8px;margin-bottom:12px;">
+                            <label style="display:flex;align-items:center;gap:6px;padding:8px 16px;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;font-size:14px;" class="scope-option active" data-scope="public" onclick="onScopeSelect(this)">
+                                <input type="radio" name="qscope" value="public" checked style="accent-color:#4f46e5;"> 公共题库
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;padding:8px 16px;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;font-size:14px;" class="scope-option" data-scope="project" onclick="onScopeSelect(this)">
+                                <input type="radio" name="qscope" value="project" style="accent-color:#4f46e5;"> 项目题库
+                            </label>
+                        </div>
+                        <div id="project-select-wrap" style="display:none;">
+                            <label class="form-label" style="font-size:13px;margin-bottom:6px;">选择项目</label>
+                            ${ExamSystem.ProjectManager.projectSelectHtml('q-project', existing ? existing.project_id : '')}
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <label class="form-label">题型</label>
+                        <div style="display:flex;gap:8px;">
+                            <label style="display:flex;align-items:center;gap:6px;padding:8px 16px;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;font-size:14px;" class="type-option active" data-type="single">
+                                <input type="radio" name="qtype" value="single" checked style="accent-color:#4f46e5;"> 单选题
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;padding:8px 16px;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;font-size:14px;" class="type-option" data-type="multiple">
+                                <input type="radio" name="qtype" value="multiple" style="accent-color:#4f46e5;"> 多选题
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;padding:8px 16px;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;font-size:14px;" class="type-option" data-type="judge">
+                                <input type="radio" name="qtype" value="judge" style="accent-color:#4f46e5;"> 判断题
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;padding:8px 16px;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;font-size:14px;" class="type-option" data-type="short">
+                                <input type="radio" name="qtype" value="short" style="accent-color:#4f46e5;"> 简答题
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group form-section">
+                            <label class="form-label">分类</label>
+                            <select class="input-field" id="q-category">
+                                ${ExamSystem.SettingsManager.getCategories().map(c => `<option value="${Utils.escapeAttr(c.name)}">${Utils.escapeHtml(c.name)}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group form-section">
+                            <label class="form-label">难度</label>
+                            <select class="input-field" id="q-difficulty">
+                                <option value="1">简单</option>
+                                <option value="2">中等</option>
+                                <option value="3">困难</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <label class="form-label">题干内容</label>
+                        <textarea class="input-field" id="q-content" rows="3" placeholder="请输入题目内容..." style="resize:vertical;"></textarea>
+                    </div>
+
+                    <div class="form-section">
+                        <label class="form-label">选项（点击圆圈标记正确答案）</label>
+                        <div id="options-container">
+                            <div class="option-row">
+                                <div class="option-letter">A</div>
+                                <input type="text" class="option-input" placeholder="选项内容">
+                                <div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div>
+                                <div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div>
+                            </div>
+                            <div class="option-row">
+                                <div class="option-letter">B</div>
+                                <input type="text" class="option-input" placeholder="选项内容">
+                                <div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div>
+                                <div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div>
+                            </div>
+                            <div class="option-row">
+                                <div class="option-letter">C</div>
+                                <input type="text" class="option-input" placeholder="选项内容">
+                                <div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div>
+                                <div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div>
+                            </div>
+                            <div class="option-row">
+                                <div class="option-letter">D</div>
+                                <input type="text" class="option-input" placeholder="选项内容">
+                                <div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div>
+                                <div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div>
+                            </div>
+                        </div>
+                        <button class="btn-ghost" onclick="addOption()" style="margin-top:8px;font-size:13px;">${ICONS.plus} 添加选项</button>
+                    </div>
+
+                    <div class="form-section">
+                        <label class="form-label">答案解析（选填）</label>
+                        <textarea class="input-field" id="q-analysis" rows="2" placeholder="请输入答案解析..." style="resize:vertical;"></textarea>
+                    </div>
+
+                    <div class="form-section">
+                        <label class="form-label">题目图片（选填）</label>
+                        <div class="image-upload-zone" onclick="document.getElementById('q-image-input').click()">
+                            <span style="font-size:13px;color:#6b7280;" id="q-image-placeholder">${ICONS.upload} 点击上传题目配图（支持 jpg/png/gif）</span>
+                            <input type="file" id="q-image-input" style="display:none;" accept="image/*" onchange="handleQuestionImageUpload(this)">
+                        </div>
+                        <div id="q-image-preview" style="display:none;"></div>
+                        <input type="hidden" id="q-image-data" value="">
+                    </div>
+
+                    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:28px;">
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" onclick="saveQuestion(this)">${questionId ? '保存修改' : '保存题目'}</button>
+                    </div>
+                </div>
+            `);
+
+            // 如果是编辑，填充现有数据
+            if (existing) {
+                // 作用域
+                if (existing.scope === 'project') {
+                    overlay.querySelector('.scope-option[data-scope="project"]').click();
+                }
+                // 题型
+                const typeOpt = overlay.querySelector('.type-option[data-type="' + existing.type + '"]');
+                if (typeOpt) typeOpt.click();
+                // 分类
+                overlay.querySelector('#q-category').value = existing.category;
+                // 难度
+                overlay.querySelector('#q-difficulty').value = String(existing.difficulty);
+                // 题干
+                overlay.querySelector('#q-content').value = existing.content;
+                // 选项
+                if (existing.options && existing.options.length > 0 && existing.type !== 'short') {
+                    const container = overlay.querySelector('#options-container');
+                    container.innerHTML = '';
+                    existing.options.forEach((opt, i) => {
+                        const letter = Utils.optionLetter(i);
+                        const isCorrect = existing.type === 'multiple'
+                            ? (Array.isArray(existing.answer) && existing.answer.includes(i))
+                            : existing.answer === i;
+                        const row = document.createElement('div');
+                        row.className = 'option-row';
+                        row.innerHTML = `
+                            <div class="option-letter">${letter}</div>
+                            <input type="text" class="option-input" value="${Utils.escapeAttr(opt)}"${existing.type === 'judge' ? ' readonly' : ''}>
+                            <div class="mark-correct ${isCorrect ? 'correct' : ''}" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div>
+                            ${existing.type === 'judge' ? '' : `<div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div>`}
+                        `;
+                        container.appendChild(row);
+                    });
+                }
+                // 简答题答案
+                if (existing.type === 'short' && existing.answer) {
+                    const ta = overlay.querySelector('#q-short-answer');
+                    if (ta) ta.value = existing.answer;
+                }
+                // 解析
+                overlay.querySelector('#q-analysis').value = existing.analysis || '';
+                // 图片
+                if (existing.image) {
+                    overlay.querySelector('#q-image-data').value = existing.image;
+                    overlay.querySelector('#q-image-placeholder').textContent = '图片已上传，点击可重新选择';
+                    const preview = overlay.querySelector('#q-image-preview');
+                    preview.style.display = 'block';
+                    preview.innerHTML = `
+                        <div class="image-preview-container" style="margin-top:8px;">
+                            <img src="${Utils.escapeAttr(existing.image)}" alt="题目图片">
+                            <button class="image-remove-btn" onclick="removeQuestionImage(event)">×</button>
+                        </div>
+                    `;
+                }
+            }
+
+            // 题型切换
+            overlay.querySelectorAll('.type-option').forEach(opt => {
+                opt.addEventListener('click', function() {
+                    overlay.querySelectorAll('.type-option').forEach(o => o.classList.remove('active'));
+                    this.classList.add('active');
+                    this.querySelector('input').checked = true;
+
+                    const type = this.dataset.type;
+                    if (type === 'judge') {
+                        // 判断题只保留2个选项
+                        const container = overlay.querySelector('#options-container');
+                        container.innerHTML = `
+                            <div class="option-row">
+                                <div class="option-letter">A</div>
+                                <input type="text" class="option-input" value="正确" readonly>
+                                <div class="mark-correct" onclick="this.classList.toggle('correct')">${ICONS.check}</div>
+                            </div>
+                            <div class="option-row">
+                                <div class="option-letter">B</div>
+                                <input type="text" class="option-input" value="错误" readonly>
+                                <div class="mark-correct" onclick="this.classList.toggle('correct')">${ICONS.check}</div>
+                            </div>
+                        `;
+                    } else if (type === 'short') {
+                        // 简答题不需要选项，替换为参考答案输入区
+                        const container = overlay.querySelector('#options-container');
+                        container.innerHTML = `
+                            <div style="padding:12px;background:#f9fafb;border-radius:10px;">
+                                <label style="font-size:13px;color:#6b7280;margin-bottom:8px;display:block;">参考答案 / 评分要点（选填）</label>
+                                <textarea class="input-field" id="q-short-answer" rows="3" placeholder="请输入参考答案或评分要点..." style="resize:vertical;"></textarea>
+                            </div>
+                        `;
+                    } else if (existing === null || (existing && existing.type !== type)) {
+                        // 新增题目切到非判断/简答题型，恢复4个空选项
+                        const container = overlay.querySelector('#options-container');
+                        if (container.children.length < 2 || container.querySelector('.option-input[readonly]')) {
+                            container.innerHTML = `
+                                <div class="option-row"><div class="option-letter">A</div><input type="text" class="option-input" placeholder="选项内容"><div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div><div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div></div>
+                                <div class="option-row"><div class="option-letter">B</div><input type="text" class="option-input" placeholder="选项内容"><div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div><div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div></div>
+                                <div class="option-row"><div class="option-letter">C</div><input type="text" class="option-input" placeholder="选项内容"><div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div><div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div></div>
+                                <div class="option-row"><div class="option-letter">D</div><input type="text" class="option-input" placeholder="选项内容"><div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div><div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div></div>
+                            `;
+                        }
+                    }
+                });
+            });
+        }
+
+        function onScopeSelect(el) {
+            el.closest('.question-form').querySelectorAll('.scope-option').forEach(o => {
+                o.classList.remove('active');
+                o.style.borderColor = '#e5e7eb';
+            });
+            el.classList.add('active');
+            el.style.borderColor = '#4f46e5';
+            el.querySelector('input').checked = true;
+            const wrap = document.getElementById('project-select-wrap');
+            wrap.style.display = el.dataset.scope === 'project' ? 'block' : 'none';
+        }
+
+        function addOption() {
+            const container = document.getElementById('options-container');
+            const count = container.children.length;
+            const letter = Utils.optionLetter(count);
+            const row = document.createElement('div');
+            row.className = 'option-row';
+            row.innerHTML = `
+                <div class="option-letter">${letter}</div>
+                <input type="text" class="option-input" placeholder="选项内容">
+                <div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div>
+                <div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div>
+            `;
+            container.appendChild(row);
+        }
+
+        function removeOption(btn) {
+            const container = btn.closest('#options-container');
+            if (container.children.length <= 2) {
+                Utils.toast('至少需要保留2个选项', 'warning');
+                return;
+            }
+            btn.closest('.option-row').remove();
+            // 重新编号
+            container.querySelectorAll('.option-row').forEach((row, i) => {
+                row.querySelector('.option-letter').textContent = Utils.optionLetter(i);
+            });
+        }
+
+        // ========== 题目图片处理 ==========
+        function handleQuestionImageUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+            if (file.size > 2 * 1024 * 1024) {
+                Utils.toast('图片大小不能超过2MB', 'warning');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const dataUrl = e.target.result;
+                document.getElementById('q-image-data').value = dataUrl;
+                document.getElementById('q-image-placeholder').textContent = '图片已上传，点击可重新选择';
+                const preview = document.getElementById('q-image-preview');
+                preview.style.display = 'block';
+                preview.innerHTML = `
+                    <div class="image-preview-container" style="margin-top:8px;">
+                        <img src="${Utils.escapeAttr(dataUrl)}" alt="题目图片">
+                        <button class="image-remove-btn" onclick="removeQuestionImage(event)">×</button>
+                    </div>
+                `;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeQuestionImage(e) {
+            if (e) e.stopPropagation();
+            document.getElementById('q-image-data').value = '';
+            document.getElementById('q-image-input').value = '';
+            document.getElementById('q-image-placeholder').innerHTML = ICONS.upload + ' 点击上传题目配图（支持 jpg/png/gif）';
+            document.getElementById('q-image-preview').style.display = 'none';
+            document.getElementById('q-image-preview').innerHTML = '';
+        }
+
+        function saveQuestion(btn) {
+            const overlay = btn.closest('.modal-overlay');
+            const scope = overlay.querySelector('input[name="qscope"]:checked').value;
+            const projectId = scope === 'project' ? parseInt(overlay.querySelector('#q-project').value) : null;
+            const type = overlay.querySelector('input[name="qtype"]:checked').value;
+            const category = overlay.querySelector('#q-category').value;
+            const difficulty = parseInt(overlay.querySelector('#q-difficulty').value);
+            const content = overlay.querySelector('#q-content').value.trim();
+            const analysis = overlay.querySelector('#q-analysis').value.trim();
+            const imageData = overlay.querySelector('#q-image-data').value;
+
+            if (!content) {
+                Utils.toast('请输入题干内容', 'warning');
+                return;
+            }
+            if (scope === 'project' && !projectId) {
+                Utils.toast('请选择项目', 'warning');
+                return;
+            }
+
+            // 构建题目对象
+            let options = [];
+            let answer = null;
+
+            if (type === 'short') {
+                const shortAnswer = overlay.querySelector('#q-short-answer');
+                answer = shortAnswer ? shortAnswer.value.trim() : '';
+            } else {
+                const optionRows = overlay.querySelectorAll('#options-container .option-row');
+                const correctIndices = [];
+                optionRows.forEach((row, i) => {
+                    const input = row.querySelector('.option-input');
+                    if (input && input.value.trim()) {
+                        options.push(input.value.trim());
+                        if (row.querySelector('.mark-correct.correct')) {
+                            correctIndices.push(i);
+                        }
+                    }
+                });
+
+                if (options.length < 2 && type !== 'short') {
+                    Utils.toast('至少需要2个选项', 'warning');
+                    return;
+                }
+                if (correctIndices.length === 0) {
+                    Utils.toast('请标记正确答案', 'warning');
+                    return;
+                }
+
+                if (type === 'judge') {
+                    answer = correctIndices[0];
+                } else if (type === 'multiple') {
+                    answer = correctIndices;
+                } else {
+                    answer = correctIndices[0];
+                }
+            }
+
+            btn.innerHTML = '<span class="spinner"></span> 保存中...';
+            btn.disabled = true;
+
+            setTimeout(() => {
+                const questionData = {
+                    type, scope, project_id: projectId,
+                    category, difficulty, content,
+                    options: type === 'short' ? null : options,
+                    answer, analysis,
+                    image: imageData || null
+                };
+
+                if (editingQuestionId) {
+                    ExamSystem.QuestionBankManager.updateQuestion(editingQuestionId, questionData);
+                    Utils.toast('题目修改成功！', 'success');
+                } else {
+                    ExamSystem.QuestionBankManager.addQuestion(questionData);
+                    Utils.toast('题目添加成功！', 'success');
+                }
+
+                Utils.closeModal(overlay);
+                renderQuestions();
+            }, 500);
+        }
+
+        function editQuestion(id) {
+            showAddQuestionModal(id);
+        }
+
+        function deleteQuestion(id) {
+            Utils.confirm(`确定要删除题目 #${String(id).padStart(4, '0')} 吗？删除后不可恢复。`, () => {
+                ExamSystem.QuestionBankManager.deleteQuestion(id);
+                Utils.toast('题目已删除', 'success');
+                renderQuestions();
+            }, '删除确认');
+        }
+
+        let parsedQuestions = [];
+
+        function showImportModal() {
+            parsedQuestions = [];
+            const overlay = Utils.showModal(`
+                <div style="padding:32px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:8px;">批量导入题目</h3>
+                    <p style="font-size:14px;color:#6b7280;margin-bottom:24px;">支持 Word、PDF、Excel、TXT 等格式，系统自动识别题型并解析</p>
+
+                    <!-- 导入目标题库选择 -->
+                    <div style="margin-bottom:20px;padding:16px;background:#f0f4ff;border-radius:10px;">
+                        <label style="font-size:14px;font-weight:600;color:#374151;margin-bottom:10px;display:block;">导入到哪个题库？</label>
+                        <div style="display:flex;gap:8px;margin-bottom:10px;">
+                            <label style="display:flex;align-items:center;gap:6px;padding:8px 16px;border:2px solid #4f46e5;border-radius:8px;cursor:pointer;font-size:14px;background:#fff;" class="import-scope-option active" data-scope="public" onclick="onImportScopeSelect(this)">
+                                <input type="radio" name="importscope" value="public" checked style="accent-color:#4f46e5;"> 公共题库
+                            </label>
+                            <label style="display:flex;align-items:center;gap:6px;padding:8px 16px;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;font-size:14px;background:#fff;" class="import-scope-option" data-scope="project" onclick="onImportScopeSelect(this)">
+                                <input type="radio" name="importscope" value="project" style="accent-color:#4f46e5;"> 项目题库
+                            </label>
+                        </div>
+                        <div id="import-project-wrap" style="display:none;">
+                            ${ExamSystem.ProjectManager.projectSelectHtml('import-project', '')}
+                        </div>
+                    </div>
+
+                    <!-- 格式说明 -->
+                    <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
+                        <span class="badge badge-info" style="padding:4px 12px;">Word (.docx)</span>
+                        <span class="badge badge-danger" style="padding:4px 12px;">PDF (.pdf)</span>
+                        <span class="badge badge-success" style="padding:4px 12px;">Excel (.xlsx)</span>
+                        <span class="badge badge-warning" style="padding:4px 12px;">CSV (.csv)</span>
+                        <span class="badge badge-gray" style="padding:4px 12px;">TXT (.txt)</span>
+                    </div>
+
+                    <!-- 上传区域 -->
+                    <div id="upload-zone" style="border:2px dashed #d1d5db;border-radius:12px;padding:40px 20px;margin-bottom:20px;cursor:pointer;transition:all 0.2s;text-align:center;" onmouseover="this.style.borderColor='#4f46e5';this.style.background='#eef2ff'" onmouseout="this.style.borderColor='#d1d5db';this.style.background='#fff'" onclick="document.getElementById('file-input').click()">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5" style="margin-bottom:12px;">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <div style="font-size:14px;color:#6b7280;margin-bottom:4px;">点击或拖拽文件到此处上传</div>
+                        <div style="font-size:12px;color:#9ca3af;">支持 .docx, .pdf, .xlsx, .csv, .txt 格式，单次最多500题</div>
+                        <input type="file" id="file-input" style="display:none;" accept=".docx,.pdf,.xlsx,.csv,.txt" onchange="handleFileUpload(event)">
+                    </div>
+
+                    <!-- 解析进度 -->
+                    <div id="parse-progress" style="display:none;text-align:center;padding:20px;">
+                        <div class="spinner" style="margin:0 auto 12px;border-color:#4f46e5;border-top-color:transparent;"></div>
+                        <div style="font-size:14px;color:#6b7280;" id="parse-status">正在解析文件...</div>
+                    </div>
+
+                    <!-- 解析结果预览 -->
+                    <div id="parse-result" style="display:none;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                            <div>
+                                <span style="font-size:15px;font-weight:600;color:#1f2937;">解析结果预览</span>
+                                <span style="font-size:13px;color:#6b7280;margin-left:8px;" id="parse-summary"></span>
+                            </div>
+                            <button class="btn-ghost" style="font-size:13px;" onclick="resetImport()">重新上传</button>
+                        </div>
+
+                        <!-- 题型统计 -->
+                        <div id="type-stats" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;"></div>
+
+                        <!-- 题目预览列表 -->
+                        <div id="preview-list" style="max-height:400px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:10px;padding:8px;"></div>
+                    </div>
+
+                    <!-- 格式说明 -->
+                    <div id="format-guide" style="margin-top:20px;background:#f9fafb;border-radius:10px;padding:16px;">
+                        <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">文本格式说明（适用于 Word/PDF/TXT）：</div>
+                        <div style="font-size:12px;color:#6b7280;line-height:1.8;font-family:monospace;">
+                            1. 公司成立于哪一年？<br>
+                            A. 1996年　B. 1998年　C. 2000年　D. 2002年<br>
+                            答案：B<br>
+                            解析：公司成立于1998年，总部位于深圳。<br>
+                            <br>
+                            2. 以下哪些是公司的主要产品线？（多选）<br>
+                            A. 社交与通讯　B. 数字内容　C. 金融科技　D. 汽车制造<br>
+                            答案：ABC<br>
+                            <br>
+                            3. 请简述公司的核心价值观。<br>
+                            答案：用户为本，科技向善
+                        </div>
+                    </div>
+
+                    <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:24px;">
+                        <button class="btn-secondary" onclick="ExportUtil && Utils.toast('模板下载中...', 'info'); downloadImportTemplate()">
+                            ${ICONS.download}
+                            下载模板
+                        </button>
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" id="confirm-import-btn" style="display:none;" onclick="confirmImport()">
+                            ${ICONS.check}
+                            确认导入
+                        </button>
+                    </div>
+                </div>
+            `);
+        }
+
+        function downloadImportTemplate() {
+            if (typeof XLSX !== 'undefined') {
+                const data = [
+                    { '题型': '单选题', '题干': '公司的核心价值观是什么？', '分类': '公共红线考试', '难度': '简单', '选项A': '用户为本，科技向善', '选项B': '追求卓越，合作共赢', '选项C': '创新驱动，诚信担当', '选项D': '客户第一，员工第二', '答案': 'A', '解析': '公司的核心价值观是"用户为本，科技向善"' },
+                    { '题型': '多选题', '题干': '以下哪些属于信息安全红线行为？', '分类': '公共红线考试', '难度': '中等', '选项A': '使用个人邮箱发送公司文件', '选项B': '将密码写在便签纸上', '选项C': '定期更换密码', '选项D': '使用未授权U盘', '答案': 'ABD', '解析': '定期更换密码是正确行为，其余均为红线行为' },
+                    { '题型': '判断题', '题干': '员工入职后需签订保密协议，离职后仍有效。', '分类': '公共红线考试', '难度': '简单', '选项A': '正确', '选项B': '错误', '答案': 'A', '解析': '保密协议在离职后仍然有效' },
+                    { '题型': '简答题', '题干': '请简述项目中的红线规范要求。', '分类': '项目红线考试', '难度': '中等', '答案': '根据项目规范要求作答', '解析': '开放性题目，评分看理解深度' }
+                ];
+                const ws = XLSX.utils.json_to_sheet(data);
+                ws['!cols'] = [{wch:8},{wch:30},{wch:12},{wch:8},{wch:20},{wch:20},{wch:20},{wch:20},{wch:8},{wch:30}];
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, '题目导入模板');
+                XLSX.writeFile(wb, '题目导入模板.xlsx');
+                Utils.toast('模板已下载', 'success');
+            } else {
+                Utils.toast('模板下载功能需要联网', 'warning');
+            }
+        }
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const ext = file.name.split('.').pop().toLowerCase();
+            const supported = ['docx', 'pdf', 'xlsx', 'csv', 'txt'];
+            if (!supported.includes(ext)) {
+                Utils.toast('不支持的文件格式，请上传 .docx, .pdf, .xlsx, .csv, .txt 文件', 'error');
+                return;
+            }
+
+            document.getElementById('upload-zone').style.display = 'none';
+            document.getElementById('format-guide').style.display = 'none';
+            document.getElementById('parse-progress').style.display = 'block';
+            document.getElementById('parse-status').textContent = `正在解析 ${file.name}...`;
+
+            try {
+                let text = '';
+                if (ext === 'txt') {
+                    text = await file.text();
+                    parsedQuestions = QuestionParser.parseText(text);
+                } else if (ext === 'docx') {
+                    document.getElementById('parse-status').textContent = '正在解析 Word 文档...';
+                    const arrayBuffer = await file.arrayBuffer();
+                    const result = await mammoth.extractRawText({ arrayBuffer });
+                    text = result.value;
+                    parsedQuestions = QuestionParser.parseText(text);
+                } else if (ext === 'pdf') {
+                    document.getElementById('parse-status').textContent = '正在解析 PDF 文档...';
+                    if (window.pdfjsLib) {
+                        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+                    }
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    let fullText = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const content = await page.getTextContent();
+                        fullText += content.items.map(item => item.str).join('\n') + '\n';
+                    }
+                    text = fullText;
+                    parsedQuestions = QuestionParser.parseText(text);
+                } else if (ext === 'xlsx' || ext === 'csv') {
+                    document.getElementById('parse-status').textContent = '正在解析 Excel 表格...';
+                    const arrayBuffer = await file.arrayBuffer();
+                    const wb = XLSX.read(arrayBuffer, { type: 'array' });
+                    const ws = wb.Sheets[wb.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(ws);
+                    const fieldMap = QuestionParser.getDefaultFieldMap();
+                    parsedQuestions = QuestionParser.parseExcelRows(rows, fieldMap);
+                }
+
+                // 模拟解析延迟
+                await new Promise(r => setTimeout(r, 500));
+
+                document.getElementById('parse-progress').style.display = 'none';
+                showParseResult();
+            } catch (err) {
+                console.error('Parse error:', err);
+                document.getElementById('parse-progress').style.display = 'none';
+                document.getElementById('upload-zone').style.display = 'block';
+                document.getElementById('format-guide').style.display = 'block';
+                Utils.toast('文件解析失败：' + err.message, 'error');
+            }
+        }
+
+        function showParseResult() {
+            if (parsedQuestions.length === 0) {
+                document.getElementById('upload-zone').style.display = 'block';
+                document.getElementById('format-guide').style.display = 'block';
+                Utils.toast('未识别到有效题目，请检查文件格式', 'warning');
+                return;
+            }
+
+            document.getElementById('parse-result').style.display = 'block';
+            document.getElementById('confirm-import-btn').style.display = 'inline-flex';
+
+            // 统计
+            const typeCounts = {};
+            parsedQuestions.forEach(q => {
+                typeCounts[q.type] = (typeCounts[q.type] || 0) + 1;
+            });
+            document.getElementById('parse-summary').textContent = `共识别 ${parsedQuestions.length} 道题`;
+
+            const typeStatsHtml = Object.entries(typeCounts).map(([type, count]) => {
+                const badgeClass = type === 'single' ? 'badge-info' : type === 'multiple' ? 'badge-purple' : type === 'short' ? 'badge-warning' : 'badge-success';
+                return `<span class="badge ${badgeClass}" style="padding:4px 12px;">${Utils.questionTypeText(type)}：${count} 题</span>`;
+            }).join('');
+            document.getElementById('type-stats').innerHTML = typeStatsHtml;
+
+            // 预览列表
+            const previewHtml = parsedQuestions.map((q, i) => {
+                const typeBadge = q.type === 'single' ? 'badge-info' : q.type === 'multiple' ? 'badge-purple' : q.type === 'short' ? 'badge-warning' : 'badge-success';
+                let optionsHtml = '';
+                if (q.options && q.options.length > 0) {
+                    optionsHtml = q.options.map((opt, oi) => {
+                        const isCorrect = q.type === 'multiple'
+                            ? (Array.isArray(q.answer) && q.answer.includes(oi))
+                            : q.answer === oi;
+                        return `<div style="font-size:12px;color:${isCorrect ? '#16a34a' : '#6b7280'};padding:2px 0;">${Utils.optionLetter(oi)}. ${Utils.escapeHtml(opt)}${isCorrect ? ' ✓' : ''}</div>`;
+                    }).join('');
+                } else if (q.type === 'short' && q.answer) {
+                    optionsHtml = `<div style="font-size:12px;color:#6b7280;padding:2px 0;">参考答案：${Utils.escapeHtml(q.answer)}</div>`;
+                }
+                return `
+                    <div class="preview-item" id="preview-item-${i}" style="padding:12px;border-bottom:1px solid #f3f4f6;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                            <span style="font-size:12px;color:#9ca3af;font-weight:600;">${i + 1}.</span>
+                            <span class="badge ${typeBadge}" style="font-size:11px;">${Utils.questionTypeText(q.type)}</span>
+                            <span class="badge ${Utils.difficultyBadge(q.difficulty)}" style="font-size:11px;">${Utils.difficultyText(q.difficulty)}</span>
+                            <span style="font-size:11px;color:#9ca3af;">${Utils.escapeHtml(q.category || '未分类')}</span>
+                            <div style="margin-left:auto;display:flex;gap:4px;">
+                                <button class="preview-edit-btn" onclick="editPreviewQuestion(${i})">${ICONS.edit}编辑</button>
+                                <button class="preview-edit-btn" style="border-color:#fecaca;color:#ef4444;" onclick="deletePreviewQuestion(${i})">${ICONS.trash}删除</button>
+                            </div>
+                        </div>
+                        <div style="font-size:13px;color:#374151;margin-bottom:6px;line-height:1.5;">${Utils.escapeHtml(q.content)}</div>
+                        ${optionsHtml}
+                        ${q.analysis ? `<div style="font-size:11px;color:#9ca3af;margin-top:4px;">解析：${Utils.escapeHtml(q.analysis.substring(0, 60))}${q.analysis.length > 60 ? '...' : ''}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('preview-list').innerHTML = previewHtml;
+
+            Utils.toast(`成功识别 ${parsedQuestions.length} 道题目`, 'success');
+        }
+
+        // 编辑预览中的单道题目
+        function editPreviewQuestion(index) {
+            const q = parsedQuestions[index];
+            if (!q) return;
+            const item = document.getElementById(`preview-item-${index}`);
+            const categories = ExamSystem.SettingsManager.getCategories();
+
+            let optionsFormHtml = '';
+            if (q.type !== 'short' && q.options) {
+                optionsFormHtml = q.options.map((opt, oi) => {
+                    const isCorrect = q.type === 'multiple'
+                        ? (Array.isArray(q.answer) && q.answer.includes(oi))
+                        : q.answer === oi;
+                    return `
+                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                            <input type="checkbox" class="preview-opt-correct" data-idx="${oi}" ${isCorrect ? 'checked' : ''} style="accent-color:#4f46e5;">
+                            <span style="font-size:12px;font-weight:600;color:#6b7280;">${Utils.optionLetter(oi)}.</span>
+                            <input type="text" class="preview-opt-text" data-idx="${oi}" value="${Utils.escapeAttr(opt)}" style="flex:1;">
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            item.classList.add('editing');
+            item.innerHTML = `
+                <div class="preview-edit-form">
+                    <div style="display:flex;gap:8px;margin-bottom:8px;">
+                        <select id="preview-type-${index}" style="width:100px;">
+                            <option value="single" ${q.type === 'single' ? 'selected' : ''}>单选题</option>
+                            <option value="multiple" ${q.type === 'multiple' ? 'selected' : ''}>多选题</option>
+                            <option value="judge" ${q.type === 'judge' ? 'selected' : ''}>判断题</option>
+                            <option value="short" ${q.type === 'short' ? 'selected' : ''}>简答题</option>
+                        </select>
+                        <select id="preview-difficulty-${index}" style="width:100px;">
+                            <option value="1" ${q.difficulty === 1 ? 'selected' : ''}>简单</option>
+                            <option value="2" ${q.difficulty === 2 ? 'selected' : ''}>中等</option>
+                            <option value="3" ${q.difficulty === 3 ? 'selected' : ''}>困难</option>
+                        </select>
+                        <select id="preview-category-${index}" style="flex:1;">
+                            ${categories.map(c => `<option value="${Utils.escapeAttr(c.name)}" ${q.category === c.name ? 'selected' : ''}>${Utils.escapeHtml(c.name)}</option>`).join('')}
+                        </select>
+                    </div>
+                    <textarea id="preview-content-${index}" rows="2" placeholder="题干内容" style="width:100%;margin-bottom:8px;">${Utils.escapeHtml(q.content)}</textarea>
+                    ${q.type === 'short' ?
+                        `<textarea id="preview-answer-${index}" rows="2" placeholder="参考答案" style="width:100%;margin-bottom:8px;">${Utils.escapeHtml(q.answer || '')}</textarea>`
+                        : `<div id="preview-opts-${index}" style="margin-bottom:8px;">${optionsFormHtml}</div>`}
+                    <textarea id="preview-analysis-${index}" rows="1" placeholder="解析（选填）" style="width:100%;margin-bottom:8px;">${Utils.escapeHtml(q.analysis || '')}</textarea>
+                    <div style="display:flex;justify-content:flex-end;gap:8px;">
+                        <button class="preview-edit-btn" onclick="showParseResult()">取消</button>
+                        <button class="preview-edit-btn" style="background:#4f46e5;color:#fff;border-color:#4f46e5;" onclick="savePreviewQuestion(${index})">保存</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function savePreviewQuestion(index) {
+            const q = parsedQuestions[index];
+            if (!q) return;
+            q.type = document.getElementById(`preview-type-${index}`).value;
+            q.difficulty = parseInt(document.getElementById(`preview-difficulty-${index}`).value);
+            q.category = document.getElementById(`preview-category-${index}`).value;
+            q.content = document.getElementById(`preview-content-${index}`).value.trim();
+            q.analysis = document.getElementById(`preview-analysis-${index}`).value.trim();
+
+            if (q.type === 'short') {
+                q.answer = document.getElementById(`preview-answer-${index}`).value.trim();
+                q.options = null;
+            } else {
+                const optTexts = document.querySelectorAll(`#preview-opts-${index} .preview-opt-text`);
+                const optChecks = document.querySelectorAll(`#preview-opts-${index} .preview-opt-correct`);
+                q.options = [];
+                const correctIdx = [];
+                optTexts.forEach((input, i) => {
+                    if (input.value.trim()) {
+                        q.options.push(input.value.trim());
+                        if (optChecks[i] && optChecks[i].checked) correctIdx.push(i);
+                    }
+                });
+                if (q.type === 'judge') {
+                    q.options = ['正确', '错误'];
+                    q.answer = correctIdx.length > 0 ? correctIdx[0] : 0;
+                } else if (q.type === 'multiple') {
+                    q.answer = correctIdx;
+                } else {
+                    q.answer = correctIdx.length > 0 ? correctIdx[0] : 0;
+                }
+            }
+            showParseResult();
+            Utils.toast('题目已更新', 'success');
+        }
+
+        function deletePreviewQuestion(index) {
+            parsedQuestions.splice(index, 1);
+            showParseResult();
+            Utils.toast('已删除该题', 'info');
+        }
+
+        function resetImport() {
+            parsedQuestions = [];
+            document.getElementById('upload-zone').style.display = 'block';
+            document.getElementById('format-guide').style.display = 'block';
+            document.getElementById('parse-result').style.display = 'none';
+            document.getElementById('confirm-import-btn').style.display = 'none';
+            document.getElementById('file-input').value = '';
+        }
+
+        function onImportScopeSelect(el) {
+            el.closest('div[style*="padding:16px"]').querySelectorAll('.import-scope-option').forEach(o => {
+                o.classList.remove('active');
+                o.style.borderColor = '#e5e7eb';
+            });
+            el.classList.add('active');
+            el.style.borderColor = '#4f46e5';
+            el.querySelector('input').checked = true;
+            const wrap = document.getElementById('import-project-wrap');
+            wrap.style.display = el.dataset.scope === 'project' ? 'block' : 'none';
+        }
+
+        function confirmImport() {
+            const overlay = document.querySelector('.modal-overlay');
+            const scope = overlay.querySelector('input[name="importscope"]:checked').value;
+            const projectId = scope === 'project' ? parseInt(overlay.querySelector('#import-project').value) : null;
+
+            if (scope === 'project' && !projectId) {
+                Utils.toast('请选择项目', 'warning');
+                return;
+            }
+
+            const btn = document.getElementById('confirm-import-btn');
+            btn.innerHTML = '<span class="spinner"></span> 导入中...';
+            btn.disabled = true;
+            setTimeout(() => {
+                const count = ExamSystem.QuestionBankManager.batchAddQuestions(parsedQuestions, scope, projectId);
+                Utils.closeModal(overlay);
+                Utils.toast(`成功导入 ${count} 道题目到${scope === 'public' ? '公共题库' : Utils.escapeHtml(ExamSystem.ProjectManager.projectName(projectId))}！`, 'success');
+                renderQuestions();
+            }, 800);
+        }
+
+        // ========== 批量操作 ==========
+        function toggleSelectAll(checkbox) {
+            const checkboxes = document.querySelectorAll('.q-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = checkbox.checked;
+                const qid = parseInt(cb.value);
+                if (checkbox.checked) selectedQuestionIds.add(qid);
+                else selectedQuestionIds.delete(qid);
+            });
+            updateBatchUI();
+        }
+
+        function toggleSelectQuestion(qid, checked) {
+            if (checked) selectedQuestionIds.add(qid);
+            else selectedQuestionIds.delete(qid);
+            updateBatchUI();
+        }
+
+        function updateBatchUI() {
+            const batchActions = document.getElementById('batch-actions');
+            const batchCount = document.getElementById('batch-count');
+            if (selectedQuestionIds.size > 0) {
+                batchActions.style.display = 'flex';
+                batchCount.textContent = `已选 ${selectedQuestionIds.size} 题`;
+            } else {
+                batchActions.style.display = 'none';
+            }
+        }
+
+        function showBatchEditModal() {
+            const ids = Array.from(selectedQuestionIds);
+            const categories = ExamSystem.SettingsManager.getCategories();
+            const projects = ExamSystem.ProjectManager.getProjects().filter(p => p.status !== 'deleted');
+
+            Utils.showModal(`
+                <div style="padding:28px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:8px;">批量编辑题目</h3>
+                    <p style="font-size:13px;color:#6b7280;margin-bottom:24px;">将对选中的 ${ids.length} 道题目进行批量修改，留空或不选的字段保持不变</p>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">修改分类</label>
+                            <select class="input-field" id="batch-category" style="height:42px;">
+                                <option value="">不修改</option>
+                                ${categories.map(c => `<option value="${Utils.escapeAttr(c.name)}">${Utils.escapeHtml(c.name)}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">修改难度</label>
+                            <select class="input-field" id="batch-difficulty" style="height:42px;">
+                                <option value="">不修改</option>
+                                <option value="1">简单</option>
+                                <option value="2">中等</option>
+                                <option value="3">困难</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">移动到其他题库</label>
+                        <select class="input-field" id="batch-scope" style="height:42px;">
+                            <option value="">不修改</option>
+                            <option value="public">公共题库</option>
+                            ${projects.map(p => `<option value="project:${Utils.escapeAttr(p.id)}">${Utils.escapeHtml(p.name)}</option>`).join('')}
+                        </select>
+                    </div>
+
+                    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:24px;">
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" onclick="confirmBatchEdit(${JSON.stringify(ids)})">确认修改</button>
+                    </div>
+                </div>
+            `);
+        }
+
+        function confirmBatchEdit(ids) {
+            const category = document.getElementById('batch-category').value;
+            const difficulty = document.getElementById('batch-difficulty').value;
+            const scopeVal = document.getElementById('batch-scope').value;
+
+            let count = 0;
+            ids.forEach(id => {
+                const updates = {};
+                if (category) updates.category = category;
+                if (difficulty) updates.difficulty = parseInt(difficulty);
+                if (scopeVal) {
+                    if (scopeVal === 'public') {
+                        updates.scope = 'public';
+                        updates.project_id = null;
+                    } else {
+                        const [s, pid] = scopeVal.split(':');
+                        updates.scope = 'project';
+                        updates.project_id = parseInt(pid);
+                    }
+                }
+                if (Object.keys(updates).length > 0) {
+                    ExamSystem.QuestionBankManager.updateQuestion(id, updates);
+                    count++;
+                }
+            });
+
+            Utils.closeModal(document.querySelector('.modal-overlay'));
+            Utils.toast(`已批量修改 ${count} 道题目`, 'success');
+            selectedQuestionIds.clear();
+            renderQuestions();
+        }
+
+        function batchDelete() {
+            const count = selectedQuestionIds.size;
+            Utils.confirm(`确定要删除选中的 ${count} 道题目吗？删除后不可恢复。`, () => {
+                selectedQuestionIds.forEach(id => {
+                    ExamSystem.QuestionBankManager.deleteQuestion(id);
+                });
+                Utils.toast(`已删除 ${count} 道题目`, 'success');
+                selectedQuestionIds.clear();
+                renderQuestions();
+            }, '批量删除确认');
+        }
+
+        // ========== 项目导入 ==========
+        function showProjectImportModal() {
+            Utils.showModal(`
+                <div style="padding:28px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:8px;">批量导入项目</h3>
+                    <p style="font-size:13px;color:#6b7280;margin-bottom:20px;">在下方文本框中输入项目信息，每行一个项目，格式：项目名称 | 项目代码 | 描述</p>
+
+                    <div style="background:#f9fafb;border-radius:10px;padding:16px;margin-bottom:16px;">
+                        <div style="font-size:12px;color:#6b7280;font-family:monospace;line-height:1.8;">
+                            红果免费短剧 | HG | 红果短剧素材审核与标签规范<br>
+                            抖音生活服务 | DY | 生活服务商家运营规范<br>
+                            今日头条内容审核 | JR | 头条内容安全与审核标准
+                        </div>
+                    </div>
+
+                    <textarea class="input-field" id="project-import-text" rows="8" placeholder="按上方格式输入项目信息，每行一个项目..." style="resize:vertical;font-family:monospace;"></textarea>
+
+                    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:20px;">
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" onclick="confirmProjectImport()">导入项目</button>
+                    </div>
+                </div>
+            `);
+        }
+
+        function confirmProjectImport() {
+            const text = document.getElementById('project-import-text').value.trim();
+            if (!text) {
+                Utils.toast('请输入项目信息', 'warning');
+                return;
+            }
+
+            const lines = text.split('\n').filter(l => l.trim());
+            let count = 0;
+            lines.forEach(line => {
+                const parts = line.split('|').map(p => p.trim());
+                if (parts.length >= 1 && parts[0]) {
+                    ExamSystem.ProjectManager.addProject({
+                        name: parts[0],
+                        code: parts[1] || '',
+                        description: parts[2] || '',
+                        status: 'active'
+                    });
+                    count++;
+                }
+            });
+
+            Utils.closeModal(document.querySelector('.modal-overlay'));
+            Utils.toast(`成功导入 ${count} 个项目`, 'success');
+            renderProjectCards();
+        }
+
+        // ========== 项目管理快捷入口 ==========
+        function showProjectManageModal() {
+            const projects = ExamSystem.ProjectManager.getProjects().filter(p => p.status !== 'deleted');
+            Utils.showModal(`
+                <div style="padding:28px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+                        <h3 style="font-size:18px;font-weight:600;">项目管理</h3>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn-secondary" onclick="showProjectImportModal()" style="font-size:13px;padding:6px 14px;">${ICONS.upload}批量导入</button>
+                            <button class="btn-primary" onclick="showAddProjectModal()" style="font-size:13px;padding:6px 14px;">${ICONS.plus}新增项目</button>
+                        </div>
+                    </div>
+
+                    <div id="project-list-container">
+                        ${projects.map(p => `
+                            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:#f9fafb;border-radius:10px;margin-bottom:8px;">
+                                <div>
+                                    <div style="font-size:15px;font-weight:600;color:#1f2937;">${Utils.escapeHtml(p.name)} <span style="font-size:12px;color:#9ca3af;font-weight:400;">(${Utils.escapeHtml(p.code)})</span></div>
+                                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">${Utils.escapeHtml(p.description || '无描述')}</div>
+                                </div>
+                                <div style="display:flex;gap:8px;">
+                                    <button class="action-btn action-edit" onclick="editProject(${p.id})">${ICONS.edit}编辑</button>
+                                    <button class="action-btn action-delete" onclick="deleteProject(${p.id})">${ICONS.trash}删除</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div style="display:flex;justify-content:flex-end;margin-top:20px;">
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">关闭</button>
+                    </div>
+                </div>
+            `);
+        }
+
+        function showAddProjectModal() {
+            Utils.showModal(`
+                <div style="padding:28px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:24px;">新增项目</h3>
+                    <div class="form-group">
+                        <label class="form-label">项目名称 <span style="color:#ef4444;">*</span></label>
+                        <input type="text" class="input-field" id="new-project-name" placeholder="如：红果免费短剧">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">项目代码</label>
+                        <input type="text" class="input-field" id="new-project-code" placeholder="如：HG">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">项目描述</label>
+                        <textarea class="input-field" id="new-project-desc" rows="2" placeholder="项目简介..." style="resize:vertical;"></textarea>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:24px;">
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" onclick="confirmAddProject()">创建项目</button>
+                    </div>
+                </div>
+            `);
+        }
+
+        function confirmAddProject() {
+            const name = document.getElementById('new-project-name').value.trim();
+            const code = document.getElementById('new-project-code').value.trim();
+            const desc = document.getElementById('new-project-desc').value.trim();
+            if (!name) {
+                Utils.toast('请输入项目名称', 'warning');
+                return;
+            }
+            ExamSystem.ProjectManager.addProject({ name, code, description: desc, status: 'active' });
+            Utils.closeModal(document.querySelector('.modal-overlay'));
+            Utils.toast('项目创建成功', 'success');
+            showProjectManageModal();
+            renderProjectCards();
+        }
+
+        function editProject(id) {
+            const p = ExamSystem.ProjectManager.getProject(id);
+            if (!p) return;
+            Utils.closeModal(document.querySelector('.modal-overlay'));
+            Utils.showModal(`
+                <div style="padding:28px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:24px;">编辑项目</h3>
+                    <div class="form-group">
+                        <label class="form-label">项目名称 <span style="color:#ef4444;">*</span></label>
+                        <input type="text" class="input-field" id="edit-project-name" value="${Utils.escapeAttr(p.name)}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">项目代码</label>
+                        <input type="text" class="input-field" id="edit-project-code" value="${Utils.escapeAttr(p.code || '')}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">项目描述</label>
+                        <textarea class="input-field" id="edit-project-desc" rows="2" style="resize:vertical;">${Utils.escapeHtml(p.description || '')}</textarea>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:24px;">
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" onclick="confirmEditProject(${id})">保存修改</button>
+                    </div>
+                </div>
+            `);
+        }
+
+        function confirmEditProject(id) {
+            const name = document.getElementById('edit-project-name').value.trim();
+            const code = document.getElementById('edit-project-code').value.trim();
+            const desc = document.getElementById('edit-project-desc').value.trim();
+            if (!name) {
+                Utils.toast('请输入项目名称', 'warning');
+                return;
+            }
+            ExamSystem.ProjectManager.updateProject(id, { name, code, description: desc });
+            Utils.closeModal(document.querySelector('.modal-overlay'));
+            Utils.toast('项目已更新', 'success');
+            showProjectManageModal();
+            renderProjectCards();
+        }
+
+        function deleteProject(id) {
+            Utils.confirm('确定要删除此项目吗？关联的题目将保留但不再显示项目名称。', () => {
+                ExamSystem.ProjectManager.deleteProject(id);
+                Utils.toast('项目已删除', 'success');
+                showProjectManageModal();
+                renderProjectCards();
+            }, '删除项目');
+        }
+
+        renderQuestions();
+        renderProjectCards();
+    </script>
+</body>
+</html>

@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>考试管理 - 企业培训考试系统</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .admin-layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 240px; background: #fff; border-right: 1px solid #e5e7eb; padding: 20px 16px; position: fixed; top: 0; bottom: 0; left: 0; z-index: 100; display: flex; flex-direction: column; }
+        .sidebar-brand { display: flex; align-items: center; gap: 12px; padding: 8px 12px 24px; border-bottom: 1px solid #f3f4f6; margin-bottom: 16px; }
+        .sidebar-brand-icon { width: 36px; height: 36px; background: linear-gradient(135deg, #4f46e5, #7c3aed); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+        .sidebar-brand-text { font-size: 15px; font-weight: 700; color: #1f2937; }
+        .sidebar-brand-sub { font-size: 11px; color: #9ca3af; }
+        .sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .sidebar-section-label { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; padding: 16px 16px 8px; letter-spacing: 0.5px; }
+        .sidebar-footer { padding-top: 16px; border-top: 1px solid #f3f4f6; }
+        .main-area { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .top-bar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0 28px; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+        .top-bar-title { font-size: 18px; font-weight: 600; color: #1f2937; }
+        .top-bar-right { display: flex; align-items: center; gap: 16px; }
+        .icon-btn { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #6b7280; cursor: pointer; transition: all 0.2s; }
+        .icon-btn:hover { background: #f3f4f6; color: #1f2937; }
+        .admin-user { display: flex; align-items: center; gap: 10px; padding: 4px 12px; border-radius: 30px; background: #f3f4f6; cursor: pointer; }
+        .admin-avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
+        .admin-name { font-size: 14px; font-weight: 500; color: #374151; }
+        .admin-role { font-size: 11px; color: #9ca3af; }
+        .content-area { padding: 28px; flex: 1; }
+
+        .exam-status-cell { font-weight: 500; }
+        .action-btn { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; border: 1px solid; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px; }
+        .action-edit { border-color: #c7d2fe; color: #4f46e5; background: #fff; }
+        .action-edit:hover { background: #eef2ff; }
+        .action-publish { border-color: #bbf7d0; color: #16a34a; background: #fff; }
+        .action-publish:hover { background: #dcfce7; }
+        .action-score { border-color: #bfdbfe; color: #2563eb; background: #fff; }
+        .action-score:hover { background: #dbeafe; }
+        .action-delete { border-color: #fecaca; color: #ef4444; background: #fff; }
+        .action-delete:hover { background: #fef2f2; }
+
+        .table-container { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+
+        /* 创建考试 - 步骤条 */
+        .step-indicator {
+            display: flex; align-items: center; justify-content: center; gap: 0; margin-bottom: 32px;
+        }
+        .step-item {
+            display: flex; align-items: center; gap: 12px;
+        }
+        .step-line {
+            width: 60px; height: 2px; background: #e5e7eb; margin: 0 8px;
+        }
+        .step-line.completed { background: #16a34a; }
+        .step-label { font-size: 14px; font-weight: 500; color: #9ca3af; }
+        .step-label.active { color: #4f46e5; }
+        .step-label.completed { color: #16a34a; }
+
+        .create-form { padding: 32px; }
+        .form-section { margin-bottom: 24px; }
+        .form-label { display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px; }
+        .form-label .required { color: #ef4444; }
+        .form-row { display: flex; gap: 16px; }
+        .form-row .form-group { flex: 1; }
+        .form-hint { font-size: 12px; color: #9ca3af; margin-top: 6px; }
+
+        /* 抽题规则配置 */
+        .rule-row {
+            display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+            background: #f9fafb; border-radius: 10px; margin-bottom: 10px;
+        }
+        .rule-select {
+            padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; background: #fff; outline: none;
+        }
+        .rule-input {
+            width: 80px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; text-align: center; outline: none;
+        }
+        .rule-input:focus, .rule-select:focus { border-color: #4f46e5; }
+        .rule-remove { color: #9ca3af; cursor: pointer; padding: 4px; }
+        .rule-remove:hover { color: #ef4444; }
+
+        .rule-summary {
+            background: #eef2ff; border-radius: 10px; padding: 16px 20px; margin-top: 16px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .rule-summary-info { font-size: 14px; color: #4f46e5; }
+        .rule-summary-info strong { font-size: 20px; font-weight: 700; }
+
+        /* 防作弊配置 */
+        .anticheat-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 0; border-bottom: 1px solid #f3f4f6;
+        }
+        .anticheat-row:last-child { border-bottom: none; }
+        .anticheat-info { flex: 1; }
+        .anticheat-title { font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 4px; }
+        .anticheat-desc { font-size: 12px; color: #9ca3af; }
+
+        /* 试卷预览 */
+        .preview-question {
+            padding: 16px; border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 12px;
+        }
+        .preview-q-header {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+        }
+        .preview-q-content { font-size: 14px; color: #1f2937; margin-bottom: 10px; line-height: 1.6; }
+        .preview-q-options { font-size: 13px; color: #6b7280; }
+        .preview-q-option { padding: 4px 0; }
+
+        .modal-content { max-width: 720px; }
+        .form-nav-btns {
+            display: flex; justify-content: space-between; margin-top: 32px; padding-top: 24px; border-top: 1px solid #f3f4f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                </div>
+                <div>
+                    <div class="sidebar-brand-text">考试系统</div>
+                    <div class="sidebar-brand-sub">管理后台</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="sidebar-section-label">主要功能</div>
+                <a href="admin-dashboard.html" class="sidebar-link">${ICONS.dashboard} 数据看板</a>
+                <a href="admin-questions.html" class="sidebar-link">${ICONS.question} 题库管理</a>
+                <a href="admin-exams.html" class="sidebar-link active">${ICONS.exam} 考试管理</a>
+                <a href="admin-statistics.html" class="sidebar-link">${ICONS.chart} 成绩统计</a>
+                <a href="admin-users.html" class="sidebar-link">${ICONS.users} 人员管理</a>
+                <a href="admin-review.html" class="sidebar-link">${ICONS.fileCheck} 阅卷中心</a>
+                <div class="sidebar-section-label">系统</div>
+                <a href="admin-settings.html" class="sidebar-link">${ICONS.settings} 系统设置</a>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="index.html" class="sidebar-link" style="color:#ef4444;">${ICONS.logout} 退出登录</a>
+            </div>
+        </aside>
+
+        <div class="main-area">
+            <header class="top-bar">
+                <div class="top-bar-title">考试管理</div>
+                <div class="top-bar-right">
+                    <button class="btn-primary" onclick="showCreateExamModal()">
+                        ${ICONS.plus}
+                        创建考试
+                    </button>
+                    <div class="admin-user">
+                        <div class="admin-avatar" id="topbar-avatar">管</div>
+                        <div>
+                            <div class="admin-name" id="topbar-name">管理员</div>
+                            <div class="admin-role" id="topbar-role">管理员</div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area fade-in">
+                <!-- 考试类型 Tab -->
+                <div class="scope-tabs" style="display:flex;gap:8px;margin-bottom:20px;">
+                    <div class="scope-tab active" data-scope="all" onclick="switchExamScope('all')" style="padding:10px 20px;border-radius:10px;font-size:14px;font-weight:500;border:1px solid #e5e7eb;background:#fff;color:#6b7280;cursor:pointer;transition:all 0.2s;">全部考试<span class="count" id="count-all" style="font-size:12px;opacity:0.8;margin-left:4px;"></span></div>
+                    <div class="scope-tab" data-scope="public" onclick="switchExamScope('public')" style="padding:10px 20px;border-radius:10px;font-size:14px;font-weight:500;border:1px solid #e5e7eb;background:#fff;color:#6b7280;cursor:pointer;transition:all 0.2s;">公共考试<span class="count" id="count-public" style="font-size:12px;opacity:0.8;margin-left:4px;"></span></div>
+                    <div class="scope-tab" data-scope="project" onclick="switchExamScope('project')" style="padding:10px 20px;border-radius:10px;font-size:14px;font-weight:500;border:1px solid #e5e7eb;background:#fff;color:#6b7280;cursor:pointer;transition:all 0.2s;">项目考试<span class="count" id="count-project" style="font-size:12px;opacity:0.8;margin-left:4px;"></span></div>
+                </div>
+
+                <div class="table-container">
+                    <!-- 搜索栏 -->
+                    <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #e5e7eb;">
+                        <div style="flex:1;position:relative;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <input type="text" id="exam-search" placeholder="搜索考试名称..." style="width:100%;padding:8px 12px 8px 36px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;" oninput="renderExams()">
+                        </div>
+                        <select id="page-size-select" onchange="changePageSize()" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;background:#fff;outline:none;cursor:pointer;">
+                            <option value="5">5条/页</option>
+                            <option value="10" selected>10条/页</option>
+                            <option value="20">20条/页</option>
+                            <option value="50">50条/页</option>
+                        </select>
+                    </div>
+
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>考试名称</th>
+                                <th style="width:100px;">类型</th>
+                                <th style="width:90px;">状态</th>
+                                <th style="width:180px;">考试时间</th>
+                                <th style="width:60px;">时长</th>
+                                <th style="width:60px;">题量</th>
+                                <th style="width:70px;">参与人数</th>
+                                <th style="width:60px;">通过率</th>
+                                <th style="width:180px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="exam-tbody"></tbody>
+                    </table>
+
+                    <!-- 分页控件 - 讨论#4 决策方案：Client-Side 分页 -->
+                    <div id="pagination-bar" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-top:1px solid #e5e7eb;">
+                        <div id="pagination-info" style="font-size:13px;color:#6b7280;"></div>
+                        <div id="pagination-controls" style="display:flex;align-items:center;gap:6px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        (function(){var u=Utils.getLocal('current_user');if(u&&u.real_name){document.getElementById('topbar-name').textContent=u.real_name;document.getElementById('topbar-avatar').textContent=u.real_name.charAt(0);var r=u.department?u.department+' · ':'',s=u.role==='admin'?'管理员':(u.role||'');document.getElementById('topbar-role').textContent=r+s;}})();
+    </script>
+    <script>
+        let currentStep = 1;
+        let currentExamScope = 'all';
+        let examDraftData = {};
+
+        // 讨论#4：分页状态管理
+        let currentPage = 1;
+        let pageSize = 10;
+
+        function renderExams() {
+            const tbody = document.getElementById('exam-tbody');
+            const searchKeyword = (document.getElementById('exam-search')?.value || '').trim();
+
+            // 构建筛选条件
+            const filters = {};
+            if (currentExamScope !== 'all') {
+                filters.scope = currentExamScope;
+            }
+            if (searchKeyword) {
+                filters.search = searchKeyword;
+            }
+
+            // 使用分页方法获取数据（讨论#4 决策）
+            const result = ExamSystem.ExamManager.getExamsPaginated(currentPage, pageSize, filters);
+            const exams = result.data;
+
+            updateExamScopeCounts();
+
+            if (exams.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:40px;color:#9ca3af;">暂无考试</td></tr>';
+                renderPagination(result);
+                return;
+            }
+
+            let html = '';
+            exams.forEach(exam => {
+                const statusBadge = exam.status === 'published' ? 'badge-success'
+                    : exam.status === 'draft' ? 'badge-gray' : 'badge-gray';
+                const scopeHtml = exam.scope === 'project'
+                    ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:12px;background:#fef3c7;color:#92400e;">${ICONS.building}${Utils.escapeHtml(ExamSystem.ProjectManager.projectName(exam.project_id))}</span>`
+                    : `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:12px;background:#e0e7ff;color:#3730a3;">公共考试</span>`;
+                
+                // 讨论#3：显示快照状态
+                const hasSnapshotIcon = ExamSystem.ExamManager.hasSnapshot(exam.id)
+                    ? `<span title="题目已锁定（快照）" style="cursor:help;margin-left:4px;color:#16a34a;">🔒</span>`
+                    : '';
+
+                // 动态计算实际参与人数和通过率
+                const examResults = ExamSystem.ResultManager.getResultsByExam(exam.id);
+                const actualParticipants = examResults.length;
+                const passedCount = examResults.filter(r => r.passed === true).length;
+                const actualPassRate = examResults.length > 0
+                    ? Math.round((passedCount / examResults.length) * 100)
+                    : 0;
+
+                html += `
+                    <tr>
+                        <td style="font-weight:500;color:#1f2937;">${Utils.escapeHtml(exam.title)}${hasSnapshotIcon}</td>
+                        <td>${scopeHtml}</td>
+                        <td><span class="badge ${statusBadge}">${Utils.examStatusText(exam.status)}</span></td>
+                        <td style="font-size:13px;color:#6b7280;">${exam.start_time}<br><span style="color:#9ca3af;">至 ${exam.end_time}</span></td>
+                        <td style="font-size:13px;">${exam.duration}分钟</td>
+                        <td style="font-size:13px;">${exam.question_count}题</td>
+                        <td style="font-size:13px;">${actualParticipants}人</td>
+                        <td style="font-size:13px;">${actualPassRate > 0 ? actualPassRate + '%' : '-'}</td>
+                        <td style="white-space:nowrap;">
+                            ${exam.status === 'draft' ? `<button class="action-btn action-publish" onclick="publishExam(${exam.id})">${ICONS.check}发布</button>` : ''}
+                            ${exam.status === 'published' ? `<button class="action-btn action-edit" onclick="Utils.toast('考试进行中，暂不可编辑', 'warning')">编辑</button>` : ''}
+                            ${exam.status === 'ended' ? `<button class="action-btn action-score" onclick="window.location.href='admin-statistics.html'">${ICONS.chart}成绩</button>` : ''}
+                            ${exam.status !== 'published' && ExamSystem.ExamManager.hasSnapshot(exam.id) ? `<button class="action-btn action-edit" onclick="recomposeExam(${exam.id})" title="从题库重新组卷">${ICONS.refresh}重新组卷</button>` : ''}
+                            <button class="action-btn action-delete" onclick="deleteExam(${exam.id})">${ICONS.trash}删除</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+            renderPagination(result);
+        }
+
+        // 讨论#4：渲染分页控件
+        function renderPagination(paginationResult) {
+            const { total, page, pageSize, totalPages } = paginationResult;
+            
+            // 分页信息文本
+            document.getElementById('pagination-info').textContent = 
+                `共 ${total} 条记录，第 ${page}/${totalPages || 1} 页`;
+
+            const controlsContainer = document.getElementById('pagination-controls');
+            if (totalPages <= 1) {
+                controlsContainer.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+
+            // 上一页按钮
+            html += `<button class="action-btn ${page <= 1 ? '' : 'action-edit'}" 
+                onclick="goToPage(${page - 1})" ${page <= 1 ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''}>上一页</button>`;
+
+            // 页码按钮（智能省略）
+            const pages = generatePageNumbers(page, totalPages);
+            pages.forEach(p => {
+                if (p === '...') {
+                    html += `<span style="padding:4px 6px;color:#9ca3af;">...</span>`;
+                } else {
+                    const isActive = p === page;
+                    html += `<button class="action-btn ${isActive ? 'action-publish' : 'action-edit'}" 
+                        onclick="goToPage(${p})" ${isActive ? 'style="border-color:#16a34a;color:#16a34a;"' : ''}>${p}</button>`;
+                }
+            });
+
+            // 下一页按钮
+            html += `<button class="action-btn ${page >= totalPages ? '' : 'action-edit'}" 
+                onclick="goToPage(${page + 1})" ${page >= totalPages ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''}>下一页</button>`;
+
+            controlsContainer.innerHTML = html;
+        }
+
+        // 智能页码生成（带省略号）
+        function generatePageNumbers(current, total) {
+            if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+            const pages = [1];
+            if (current > 3) pages.push('...');
+            const start = Math.max(2, current - 1);
+            const end = Math.min(total - 1, current + 1);
+            for (let i = start; i <= end; i++) pages.push(i);
+            if (current < total - 2) pages.push('...');
+            pages.push(total);
+            return pages;
+        }
+
+        function goToPage(page) {
+            const filters = { scope: currentExamScope };
+            const searchKeyword = (document.getElementById('exam-search')?.value || '').trim();
+            if (searchKeyword) filters.search = searchKeyword;
+
+            const result = ExamSystem.ExamManager.getExamsPaginated(page, pageSize, filters);
+            if (page >= 1 && page <= result.totalPages) {
+                currentPage = page;
+                renderExams();
+            }
+        }
+
+        function changePageSize() {
+            pageSize = parseInt(document.getElementById('page-size-select').value) || 10;
+            currentPage = 1;
+            renderExams();
+        }
+
+        function updateExamScopeCounts() {
+            const all = ExamSystem.ExamManager.getExams();
+            const pub = all.filter(e => !e.scope || e.scope === 'public').length;
+            const proj = all.filter(e => e.scope === 'project').length;
+            document.getElementById('count-all').textContent = `(${all.length})`;
+            document.getElementById('count-public').textContent = `(${pub})`;
+            document.getElementById('count-project').textContent = `(${proj})`;
+        }
+
+        function switchExamScope(scope) {
+            currentExamScope = scope;
+            document.querySelectorAll('.scope-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.scope === scope);
+                if (tab.dataset.scope === scope) {
+                    tab.style.background = '#4f46e5';
+                    tab.style.color = '#fff';
+                    tab.style.borderColor = '#4f46e5';
+                } else {
+                    tab.style.background = '#fff';
+                    tab.style.color = '#6b7280';
+                    tab.style.borderColor = '#e5e7eb';
+                }
+            });
+            renderExams();
+        }
+
+        function showCreateExamModal() {
+            currentStep = 1;
+            examDraftData = {};
+            renderCreateModal();
+        }
+
+        function getStepContent(step) {
+            if (step === 1) {
+                const scope = examDraftData.scope || 'public';
+                return `
+                    <div class="create-form">
+                        <h3 style="font-size:18px;font-weight:600;margin-bottom:8px;text-align:center;">创建考试</h3>
+                        <p style="font-size:13px;color:#9ca3af;text-align:center;margin-bottom:28px;">步骤 1/3 - 基本信息</p>
+
+                        <div class="step-indicator">
+                            <div class="step-item">
+                                <div class="step-circle active">1</div>
+                                <span class="step-label active">基本信息</span>
+                            </div>
+                            <div class="step-line"></div>
+                            <div class="step-item">
+                                <div class="step-circle">2</div>
+                                <span class="step-label">抽题规则</span>
+                            </div>
+                            <div class="step-line"></div>
+                            <div class="step-item">
+                                <div class="step-circle">3</div>
+                                <span class="step-label">确认发布</span>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <label class="form-label">考试类型 <span class="required">*</span></label>
+                            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                                <label style="display:flex;align-items:center;gap:6px;padding:8px 16px;border:2px solid ${scope === 'public' ? '#4f46e5' : '#e5e7eb'};border-radius:8px;cursor:pointer;font-size:14px;" onclick="selectExamScope('public')">
+                                    <input type="radio" name="examscope" value="public" ${scope === 'public' ? 'checked' : ''} style="accent-color:#4f46e5;"> 公共考试（全公司）
+                                </label>
+                                <label style="display:flex;align-items:center;gap:6px;padding:8px 16px;border:2px solid ${scope === 'project' ? '#4f46e5' : '#e5e7eb'};border-radius:8px;cursor:pointer;font-size:14px;" onclick="selectExamScope('project')">
+                                    <input type="radio" name="examscope" value="project" ${scope === 'project' ? 'checked' : ''} style="accent-color:#4f46e5;"> 项目考试
+                                </label>
+                            </div>
+                            <div id="exam-project-wrap" style="${scope === 'project' ? '' : 'display:none;'}margin-bottom:8px;">
+                                ${ExamSystem.ProjectManager.projectSelectHtml('exam-project', examDraftData.project_id || '')}
+                            </div>
+                            <div class="form-hint">${scope === 'project' ? '项目考试仅对参与该项目的员工可见，题目仅从该项目题库抽取' : '公共考试对所有员工可见，题目从公共题库抽取'}</div>
+                        </div>
+
+                        <div class="form-section">
+                            <label class="form-label">考试名称 <span class="required">*</span></label>
+                            <input type="text" class="input-field" id="exam-title" placeholder="例如：2026年新员工入职培训考试" value="${Utils.escapeAttr(examDraftData.title || '')}">
+                        </div>
+
+                        <div class="form-section">
+                            <label class="form-label">考试说明</label>
+                            <textarea class="input-field" id="exam-desc" rows="2" placeholder="简要描述考试内容与要求..." style="resize:vertical;">${Utils.escapeHtml(examDraftData.description || '')}</textarea>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group form-section">
+                                <label class="form-label">开始时间 <span class="required">*</span></label>
+                                <input type="datetime-local" class="input-field" id="exam-start" value="${Utils.escapeAttr(examDraftData.start_time || '2026-07-10T09:00')}">
+                            </div>
+                            <div class="form-group form-section">
+                                <label class="form-label">结束时间 <span class="required">*</span></label>
+                                <input type="datetime-local" class="input-field" id="exam-end" value="${Utils.escapeAttr(examDraftData.end_time || '2026-07-12T18:00')}">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group form-section">
+                                <label class="form-label">考试时长（分钟）<span class="required">*</span></label>
+                                <input type="number" class="input-field" id="exam-duration" value="${examDraftData.duration || 60}" min="10" max="300">
+                            </div>
+                            <div class="form-group form-section">
+                                <label class="form-label">及格线（分）</label>
+                                <input type="number" class="input-field" id="exam-pass-score" value="${examDraftData.pass_score || 60}" min="0" max="100">
+                            </div>
+                        </div>
+
+                        <div class="form-nav-btns">
+                            <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                            <button class="btn-primary" onclick="nextStep()">下一步${ICONS.arrowRight}</button>
+                        </div>
+                    </div>
+                `;
+            } else if (step === 2) {
+                // 获取对应题库的题目统计
+                const scope = examDraftData.scope || 'public';
+                const projectId = examDraftData.project_id;
+                const scopeQuestions = ExamSystem.QuestionBankManager.getQuestions().filter(q => {
+                    if (q.status === 'deleted') return false;
+                    if (scope === 'public') return !q.scope || q.scope === 'public';
+                    if (scope === 'project') return q.scope === 'project' && String(q.project_id) === String(projectId);
+                    return false;
+                });
+                const scopeLabel = scope === 'project' ? Utils.escapeHtml(ExamSystem.ProjectManager.projectName(projectId)) + '项目题库' : '公共题库';
+
+                return `
+                    <div class="create-form">
+                        <h3 style="font-size:18px;font-weight:600;margin-bottom:8px;text-align:center;">创建考试</h3>
+                        <p style="font-size:13px;color:#9ca3af;text-align:center;margin-bottom:28px;">步骤 2/3 - 抽题规则</p>
+
+                        <div class="step-indicator">
+                            <div class="step-item">
+                                <div class="step-circle completed">${ICONS.check}</div>
+                                <span class="step-label completed">基本信息</span>
+                            </div>
+                            <div class="step-line completed"></div>
+                            <div class="step-item">
+                                <div class="step-circle active">2</div>
+                                <span class="step-label active">抽题规则</span>
+                            </div>
+                            <div class="step-line"></div>
+                            <div class="step-item">
+                                <div class="step-circle">3</div>
+                                <span class="step-label">确认发布</span>
+                            </div>
+                        </div>
+
+                        <div style="background:#f0f4ff;border-radius:10px;padding:12px 16px;margin-bottom:20px;">
+                            <div style="font-size:13px;color:#4f46e5;display:flex;align-items:center;gap:8px;">
+                                ${ICONS.book}
+                                <span>抽题范围：<strong>${scopeLabel}</strong>（共 ${scopeQuestions.length} 道题可用）</span>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <label class="form-label">抽题规则配置 <span class="required">*</span></label>
+                            <p style="font-size:12px;color:#9ca3af;margin-bottom:12px;">按题型 + 难度配置随机抽题数量，系统将${scope === 'project' ? '从该项目题库' : '从公共题库'}中随机抽取对应数量的题目</p>
+                            <div id="rules-container">
+                                <div class="rule-row">
+                                    <select class="rule-select" style="width:100px;">
+                                        <option value="single">单选题</option>
+                                        <option value="multiple">多选题</option>
+                                        <option value="judge">判断题</option>
+                                        <option value="short">简答题</option>
+                                    </select>
+                                    <select class="rule-select" style="width:90px;">
+                                        <option value="">不限</option>
+                                        <option value="1">简单</option>
+                                        <option value="2">中等</option>
+                                        <option value="3">困难</option>
+                                    </select>
+                                    <input type="number" class="rule-input" value="5" min="1" oninput="updateRuleSummary()">
+                                    <span style="font-size:13px;color:#6b7280;">题</span>
+                                    <span style="font-size:13px;color:#6b7280;margin-left:4px;">每题</span>
+                                    <input type="number" class="rule-input rule-score" value="20" min="0" step="0.1" oninput="updateRuleSummary()">
+                                    <span style="font-size:13px;color:#6b7280;">分</span>
+                                    <div class="rule-remove" onclick="removeRule(this);updateRuleSummary()">${ICONS.trash}</div>
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+                                <button class="btn-ghost" onclick="addRule()" style="font-size:13px;">${ICONS.plus}添加规则</button>
+                                <button class="btn-ghost" onclick="autoBalanceScores()" style="font-size:13px;">自动均分</button>
+                            </div>
+
+                            <div class="rule-summary">
+                                <div class="rule-summary-info">
+                                    总题量：<strong id="total-questions">5</strong> 题 &nbsp;|&nbsp; 预计满分：<strong id="total-score">100</strong> 分
+                                    <span id="score-warning" style="color:#ef4444;font-size:13px;margin-left:12px;display:none;">必须等于100分</span>
+                                </div>
+                                <span class="badge ${scopeQuestions.length >= 10 ? 'badge-success' : 'badge-warning'}">${scopeQuestions.length >= 10 ? '题库充足' : '题库较少'}</span>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <label class="form-label">防作弊配置</label>
+                            <div style="background:#f9fafb;border-radius:10px;padding:4px 16px;">
+                                <div class="anticheat-row">
+                                    <div class="anticheat-info">
+                                        <div class="anticheat-title">开启切屏检测</div>
+                                        <div class="anticheat-desc">检测考生切换浏览器标签页或应用的行为</div>
+                                    </div>
+                                    <label class="switch"><input type="checkbox" checked><span class="switch-slider"></span></label>
+                                </div>
+                                <div class="anticheat-row">
+                                    <div class="anticheat-info">
+                                        <div class="anticheat-title">允许切屏次数</div>
+                                        <div class="anticheat-desc">超过此次数后强制交卷</div>
+                                    </div>
+                                    <input type="number" class="rule-input" value="3" min="0" max="10">
+                                </div>
+                                <div class="anticheat-row">
+                                    <div class="anticheat-info">
+                                        <div class="anticheat-title">乱序出题</div>
+                                        <div class="anticheat-desc">每个考生的题目顺序和选项顺序随机打乱</div>
+                                    </div>
+                                    <label class="switch"><input type="checkbox" checked><span class="switch-slider"></span></label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-nav-btns">
+                            <button class="btn-ghost" onclick="prevStep()">${ICONS.arrowLeft}上一步</button>
+                            <button class="btn-primary" onclick="nextStep()">下一步${ICONS.arrowRight}</button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                const scope = examDraftData.scope || 'public';
+                const scopeLabel = scope === 'project' ? Utils.escapeHtml(ExamSystem.ProjectManager.projectName(examDraftData.project_id)) : '公共考试';
+                const totalQ = examDraftData.total_questions || 10;
+                const totalScore = examDraftData.total_score || 100;
+                // 统计参与人数
+                let participants = 0;
+                if (scope === 'project') {
+                    participants = ExamSystem.AccountManager.getExamineeAccounts().filter(a =>
+                        a.status === 'active' && a.project_ids && a.project_ids.includes(examDraftData.project_id)
+                    ).length;
+                } else {
+                    participants = ExamSystem.AccountManager.getExamineeAccounts().filter(a => a.status === 'active').length;
+                }
+
+                return `
+                    <div class="create-form">
+                        <h3 style="font-size:18px;font-weight:600;margin-bottom:8px;text-align:center;">创建考试</h3>
+                        <p style="font-size:13px;color:#9ca3af;text-align:center;margin-bottom:28px;">步骤 3/3 - 确认发布</p>
+
+                        <div class="step-indicator">
+                            <div class="step-item">
+                                <div class="step-circle completed">${ICONS.check}</div>
+                                <span class="step-label completed">基本信息</span>
+                            </div>
+                            <div class="step-line completed"></div>
+                            <div class="step-item">
+                                <div class="step-circle completed">${ICONS.check}</div>
+                                <span class="step-label completed">抽题规则</span>
+                            </div>
+                            <div class="step-line completed"></div>
+                            <div class="step-item">
+                                <div class="step-circle active">3</div>
+                                <span class="step-label active">确认发布</span>
+                            </div>
+                        </div>
+
+                        <div style="background:#f9fafb;border-radius:12px;padding:20px;margin-bottom:20px;">
+                            <div style="font-size:16px;font-weight:600;color:#1f2937;margin-bottom:16px;">${Utils.escapeHtml(examDraftData.title || '未命名考试')}</div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px;">
+                                <div><span style="color:#9ca3af;">考试类型：</span><strong>${scopeLabel}</strong></div>
+                                <div><span style="color:#9ca3af;">考试时间：</span>${examDraftData.start_time} ~ ${examDraftData.end_time}</div>
+                                <div><span style="color:#9ca3af;">考试时长：</span>${examDraftData.duration} 分钟</div>
+                                <div><span style="color:#9ca3af;">总题量：</span>${totalQ} 题</div>
+                                <div><span style="color:#9ca3af;">满分：</span>${totalScore} 分</div>
+                                <div><span style="color:#9ca3af;">及格线：</span>${examDraftData.pass_score} 分</div>
+                                <div><span style="color:#9ca3af;">参与人数：</span>${participants} 人</div>
+                                <div><span style="color:#9ca3af;">切屏检测：</span>已开启（最多3次）</div>
+                            </div>
+                        </div>
+
+                        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:14px 16px;margin-bottom:20px;">
+                            <div style="display:flex;align-items:flex-start;gap:10px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" style="flex-shrink:0;margin-top:1px;">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                                    <line x1="12" y1="9" x2="12" y2="13"/>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                </svg>
+                                <div style="font-size:13px;color:#92400e;line-height:1.6;">
+                                    发布后将自动通知所有参与人员（${participants}人），考试状态将变更为「已发布」。${scope === 'project' ? '该项目考试仅对参与该项目的员工可见。' : ''}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-nav-btns">
+                            <button class="btn-ghost" onclick="prevStep()">${ICONS.arrowLeft}上一步</button>
+                            <div style="display:flex;gap:8px;">
+                                <button class="btn-secondary" onclick="saveAsDraft()">存为草稿</button>
+                                <button class="btn-primary" onclick="publishNewExam()">${ICONS.check}确认发布</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function updateStepIndicator(overlay) {
+            // 步骤指示器已在内容中渲染
+        }
+
+        function renderCreateModal() {
+            const overlay = Utils.showModal(getStepContent(currentStep));
+        }
+
+        function selectExamScope(scope) {
+            examDraftData.scope = scope;
+            // 更新单选按钮和边框样式
+            const labels = document.querySelectorAll('label[onclick^="selectExamScope"]');
+            labels.forEach(l => {
+                l.style.borderColor = '#e5e7eb';
+                l.querySelector('input').checked = false;
+            });
+            const selected = document.querySelector(`label[onclick="selectExamScope('${scope}')"]`);
+            if (selected) {
+                selected.style.borderColor = '#4f46e5';
+                selected.querySelector('input').checked = true;
+            }
+            document.getElementById('exam-project-wrap').style.display = scope === 'project' ? 'block' : 'none';
+        }
+
+        function nextStep() {
+            // 收集当前步骤数据
+            if (currentStep === 1) {
+                examDraftData.title = document.getElementById('exam-title')?.value.trim() || '';
+                examDraftData.description = document.getElementById('exam-desc')?.value.trim() || '';
+                examDraftData.start_time = document.getElementById('exam-start')?.value.replace('T', ' ') || '';
+                examDraftData.end_time = document.getElementById('exam-end')?.value.replace('T', ' ') || '';
+                examDraftData.duration = parseInt(document.getElementById('exam-duration')?.value) || 60;
+                examDraftData.pass_score = parseInt(document.getElementById('exam-pass-score')?.value) || 60;
+                if (examDraftData.scope === 'project') {
+                    examDraftData.project_id = parseInt(document.getElementById('exam-project')?.value) || null;
+                }
+                if (!examDraftData.title) {
+                    Utils.toast('请输入考试名称', 'warning');
+                    return;
+                }
+                if (examDraftData.scope === 'project' && !examDraftData.project_id) {
+                    Utils.toast('请选择项目', 'warning');
+                    return;
+                }
+            }
+            if (currentStep === 2) {
+                collectRules();
+                updateRuleSummary();
+                if (Math.abs(examDraftData.total_score - 100) > 0.001) {
+                    Utils.toast('预计满分必须为 100 分，请调整每题分数', 'warning');
+                    return;
+                }
+            }
+            if (currentStep < 3) {
+                currentStep++;
+                const overlay = document.querySelector('.modal-overlay');
+                if (overlay) {
+                    overlay.querySelector('.modal-content').innerHTML = getStepContent(currentStep);
+                }
+            }
+        }
+
+        function prevStep() {
+            if (currentStep > 1) {
+                currentStep--;
+                const overlay = document.querySelector('.modal-overlay');
+                if (overlay) {
+                    overlay.querySelector('.modal-content').innerHTML = getStepContent(currentStep);
+                }
+            }
+        }
+
+        function addRule() {
+            const container = document.getElementById('rules-container');
+            const row = document.createElement('div');
+            row.className = 'rule-row';
+            row.innerHTML = `
+                <select class="rule-select" style="width:100px;">
+                    <option value="single">单选题</option>
+                    <option value="multiple">多选题</option>
+                    <option value="judge">判断题</option>
+                    <option value="short">简答题</option>
+                </select>
+                <select class="rule-select" style="width:90px;">
+                    <option value="">不限</option>
+                    <option value="1">简单</option>
+                    <option value="2">中等</option>
+                    <option value="3">困难</option>
+                </select>
+                <input type="number" class="rule-input" value="1" min="1" oninput="updateRuleSummary()">
+                <span style="font-size:13px;color:#6b7280;">题</span>
+                <span style="font-size:13px;color:#6b7280;margin-left:4px;">每题</span>
+                <input type="number" class="rule-input rule-score" value="10" min="0" step="0.1" oninput="updateRuleSummary()">
+                <span style="font-size:13px;color:#6b7280;">分</span>
+                <div class="rule-remove" onclick="removeRule(this);updateRuleSummary()">${ICONS.trash}</div>
+            `;
+            container.appendChild(row);
+            updateRuleSummary();
+        }
+
+        function updateRuleSummary() {
+            let totalQuestions = 0;
+            let totalScore = 0;
+            document.querySelectorAll('#rules-container .rule-row').forEach(row => {
+                const count = parseInt(row.querySelector('.rule-input:not(.rule-score)').value) || 0;
+                const score = parseFloat(row.querySelector('.rule-score').value) || 0;
+                totalQuestions += count;
+                totalScore += count * score;
+            });
+
+            const totalEl = document.getElementById('total-questions');
+            const scoreEl = document.getElementById('total-score');
+            const warningEl = document.getElementById('score-warning');
+            if (totalEl) totalEl.textContent = totalQuestions;
+            if (scoreEl) scoreEl.textContent = totalScore.toFixed(2).replace(/\.00$/, '');
+            if (warningEl) {
+                warningEl.style.display = Math.abs(totalScore - 100) > 0.001 ? 'inline' : 'none';
+            }
+            examDraftData.total_questions = totalQuestions;
+            examDraftData.total_score = totalScore;
+        }
+
+        function autoBalanceScores() {
+            const rows = document.querySelectorAll('#rules-container .rule-row');
+            if (rows.length === 0) return;
+            let totalQuestions = 0;
+            rows.forEach(row => {
+                totalQuestions += parseInt(row.querySelector('.rule-input:not(.rule-score)').value) || 0;
+            });
+            if (totalQuestions === 0) return;
+            const perQuestion = (100 / totalQuestions).toFixed(2);
+            rows.forEach(row => {
+                row.querySelector('.rule-score').value = perQuestion;
+            });
+            updateRuleSummary();
+            Utils.toast('已自动均分，每题 ' + perQuestion + ' 分', 'success');
+        }
+
+        function removeRule(btn) {
+            const container = btn.closest('#rules-container');
+            if (container.children.length <= 1) {
+                Utils.toast('至少需要保留一条抽题规则', 'warning');
+                return;
+            }
+            btn.closest('.rule-row').remove();
+        }
+
+        function saveAsDraft() {
+            const participants = getParticipantCount();
+            ExamSystem.ExamManager.addExam({
+                title: examDraftData.title,
+                description: examDraftData.description,
+                scope: examDraftData.scope || 'public',
+                project_id: examDraftData.scope === 'project' ? examDraftData.project_id : null,
+                status: 'draft',
+                start_time: examDraftData.start_time,
+                end_time: examDraftData.end_time,
+                duration: examDraftData.duration,
+                participants: participants,
+                question_count: examDraftData.total_questions || 10,
+                pass_rate: 0,
+                pass_score: examDraftData.pass_score,
+                total_score: examDraftData.total_score || 100,
+                rules: examDraftData.rules || []
+            });
+            document.querySelector('.modal-overlay').remove();
+            Utils.toast('考试已保存为草稿', 'info');
+            renderExams();
+        }
+
+        function publishNewExam() {
+            const participants = getParticipantCount();
+            ExamSystem.ExamManager.addExam({
+                title: examDraftData.title,
+                description: examDraftData.description,
+                scope: examDraftData.scope || 'public',
+                project_id: examDraftData.scope === 'project' ? examDraftData.project_id : null,
+                status: 'published',
+                start_time: examDraftData.start_time,
+                end_time: examDraftData.end_time,
+                duration: examDraftData.duration,
+                participants: participants,
+                question_count: examDraftData.total_questions || 10,
+                pass_rate: 0,
+                pass_score: examDraftData.pass_score,
+                total_score: examDraftData.total_score || 100,
+                rules: examDraftData.rules || []
+            });
+            document.querySelector('.modal-overlay').remove();
+            Utils.toast(`考试已发布！已通知 ${participants} 位参与人员`, 'success');
+            renderExams();
+        }
+
+        function collectRules() {
+            const rules = [];
+            document.querySelectorAll('#rules-container .rule-row').forEach(row => {
+                rules.push({
+                    type: row.querySelectorAll('.rule-select')[0].value,
+                    difficulty: row.querySelectorAll('.rule-select')[1].value,
+                    count: parseInt(row.querySelector('.rule-input:not(.rule-score)').value) || 1,
+                    score: parseFloat(row.querySelector('.rule-score').value) || 0
+                });
+            });
+            examDraftData.rules = rules;
+        }
+
+        function getParticipantCount() {
+            const scope = examDraftData.scope || 'public';
+            if (scope === 'project') {
+                return ExamSystem.AccountManager.getExamineeAccounts().filter(a =>
+                    a.status === 'active' && a.project_ids && a.project_ids.includes(examDraftData.project_id)
+                ).length;
+            }
+            return ExamSystem.AccountManager.getExamineeAccounts().filter(a => a.status === 'active').length;
+        }
+
+        function publishExam(id) {
+            Utils.confirm('确定要发布此考试吗？发布后将自动从题库抽取题目并锁定快照。', () => {
+                const exam = ExamSystem.ExamManager.getExam(id);
+                if (exam && exam.rules) {
+                    // 讨论#3：发布时生成题目快照
+                    ExamSystem.ExamManager.generateExamSnapshot(id, exam.rules, exam.scope, exam.project_id);
+                }
+                ExamSystem.ExamManager.updateExam(id, { status: 'published' });
+                Utils.toast('考试已发布！题目已从题库抽取并锁定。', 'success');
+                renderExams();
+            }, '发布考试');
+        }
+
+        // 讨论#3：从题库重新组卷（覆盖已有快照）
+        function recomposeExam(examId) {
+            const exam = ExamSystem.ExamManager.getExam(examId);
+            if (!exam || !exam.rules || exam.rules.length === 0) {
+                Utils.toast('该考试没有抽题规则，无法重新组卷', 'warning');
+                return;
+            }
+
+            Utils.confirm(
+                '确定要从题库重新抽取题目吗？<br><br><span style="color:#ef4444;">⚠ 此操作将覆盖当前已锁定的题目快照，所有考生将看到新题目。</span>',
+                () => {
+                    ExamSystem.ExamManager.regenerateSnapshot(examId, exam.rules, exam.scope, exam.project_id);
+                    Utils.toast('已从题库重新抽取题目，快照已更新', 'success');
+                    renderExams();
+                },
+                '重新组卷确认'
+            );
+        }
+
+        function deleteExam(id) {
+            Utils.confirm('确定要删除此考试吗？删除后无法恢复。', () => {
+                ExamSystem.ExamManager.deleteExam(id);
+                Utils.toast('考试已删除', 'success');
+                renderExams();
+            }, '删除确认');
+        }
+
+        renderExams();
+    </script>
+</body>
+</html>
