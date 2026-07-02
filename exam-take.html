@@ -442,73 +442,84 @@
     <script>
         const exam = Utils.getLocal('current_exam') || MOCK_DATA.examList[0];
 
-        // 根据考试作用域筛选题目池
-        let poolQuestions;
-        if (exam.scope === 'project' && exam.project_id) {
-            poolQuestions = ExamSystem.QuestionBankManager.getQuestions().filter(q =>
-                q.status !== 'deleted' && q.scope === 'project' && String(q.project_id) === String(exam.project_id)
-            );
-        } else {
-            poolQuestions = ExamSystem.QuestionBankManager.getQuestions().filter(q =>
-                q.status !== 'deleted' && (!q.scope || q.scope === 'public')
-            );
-        }
+        // 优先使用后端返回的题目快照（exam.questions）
+        let questions = [];
+        const totalScore = exam.total_score || 100;
+        const targetCount = exam.question_count || 10;
 
-        // 如果题库题目不足，补充 MOCK_DATA 中的题目作为兜底
-        if (poolQuestions.length === 0) {
+        if (exam.questions && Array.isArray(exam.questions) && exam.questions.length > 0) {
+            // 使用后端题目快照，直接按顺序使用
+            questions = exam.questions.map(q => ({
+                ...q,
+                _ruleScore: q.score_per_question || (totalScore / exam.questions.length)
+            }));
+        } else {
+            // 回退：从本地题库抽题（原逻辑）
+            let poolQuestions;
             if (exam.scope === 'project' && exam.project_id) {
-                poolQuestions = MOCK_DATA.examQuestions.filter(q =>
-                    q.scope === 'project' && String(q.project_id) === String(exam.project_id)
+                poolQuestions = ExamSystem.QuestionBankManager.getQuestions().filter(q =>
+                    q.status !== 'deleted' && q.scope === 'project' && String(q.project_id) === String(exam.project_id)
                 );
             } else {
-                poolQuestions = MOCK_DATA.examQuestions.filter(q =>
-                    !q.scope || q.scope === 'public'
+                poolQuestions = ExamSystem.QuestionBankManager.getQuestions().filter(q =>
+                    q.status !== 'deleted' && (!q.scope || q.scope === 'public')
                 );
             }
-        }
 
-        // 按抽题规则选择题目（题型 + 难度 + 每题分数）
-        let questions = [];
-        const rules = exam.rules || [];
-        const targetCount = exam.question_count || 10;
-        const usedIds = new Set();
-
-        if (rules.length > 0) {
-            rules.forEach(rule => {
-                let available = poolQuestions.filter(q => !usedIds.has(q.id));
-                if (rule.type) {
-                    available = available.filter(q => q.type === rule.type);
+            // 如果题库题目不足，补充 MOCK_DATA 中的题目作为兜底
+            if (poolQuestions.length === 0) {
+                if (exam.scope === 'project' && exam.project_id) {
+                    poolQuestions = MOCK_DATA.examQuestions.filter(q =>
+                        q.scope === 'project' && String(q.project_id) === String(exam.project_id)
+                    );
+                } else {
+                    poolQuestions = MOCK_DATA.examQuestions.filter(q =>
+                        !q.scope || q.scope === 'public'
+                    );
                 }
-                if (rule.difficulty) {
-                    available = available.filter(q => String(q.difficulty) === String(rule.difficulty));
-                }
-                const count = Math.min(rule.count || 1, available.length);
-                const selected = available.sort(() => Math.random() - 0.5).slice(0, count);
-                selected.forEach(q => {
-                    usedIds.add(q.id);
-                    questions.push({ ...q, _ruleScore: parseFloat(rule.score) || 0 });
-                });
-            });
-            // 如果规则抽题不足，用剩余题目补齐，默认每题得分为剩余分数平均分
-            if (questions.length < targetCount) {
-                const remaining = poolQuestions.filter(q => !usedIds.has(q.id)).sort(() => Math.random() - 0.5);
-                const fillCount = targetCount - questions.length;
-                const selectedRemaining = remaining.slice(0, fillCount);
-                const usedScore = questions.reduce((sum, q) => sum + (q._ruleScore || 0), 0);
-                const remainingScore = Math.max(0, (exam.total_score || 100) - usedScore);
-                const fallbackScore = selectedRemaining.length > 0 ? remainingScore / selectedRemaining.length : 0;
-                selectedRemaining.forEach(q => {
-                    questions.push({ ...q, _ruleScore: fallbackScore });
-                });
             }
-        } else {
-            // 无规则时随机抽取，每题平均分
-            const defaultScore = (exam.total_score || 100) / targetCount;
-            questions = poolQuestions.sort(() => Math.random() - 0.5).slice(0, targetCount).map(q => ({ ...q, _ruleScore: defaultScore }));
-        }
 
-        // 最终限制数量并打乱顺序
-        questions = questions.slice(0, targetCount).sort(() => Math.random() - 0.5);
+            // 按抽题规则选择题目（题型 + 难度 + 每题分数）
+            const rules = exam.rules || [];
+            const usedIds = new Set();
+
+            if (rules.length > 0) {
+                rules.forEach(rule => {
+                    let available = poolQuestions.filter(q => !usedIds.has(q.id));
+                    if (rule.type) {
+                        available = available.filter(q => q.type === rule.type);
+                    }
+                    if (rule.difficulty) {
+                        available = available.filter(q => String(q.difficulty) === String(rule.difficulty));
+                    }
+                    const count = Math.min(rule.count || 1, available.length);
+                    const selected = available.sort(() => Math.random() - 0.5).slice(0, count);
+                    selected.forEach(q => {
+                        usedIds.add(q.id);
+                        questions.push({ ...q, _ruleScore: parseFloat(rule.score) || 0 });
+                    });
+                });
+                // 如果规则抽题不足，用剩余题目补齐
+                if (questions.length < targetCount) {
+                    const remaining = poolQuestions.filter(q => !usedIds.has(q.id)).sort(() => Math.random() - 0.5);
+                    const fillCount = targetCount - questions.length;
+                    const selectedRemaining = remaining.slice(0, fillCount);
+                    const usedScore = questions.reduce((sum, q) => sum + (q._ruleScore || 0), 0);
+                    const remainingScore = Math.max(0, totalScore - usedScore);
+                    const fallbackScore = selectedRemaining.length > 0 ? remainingScore / selectedRemaining.length : 0;
+                    selectedRemaining.forEach(q => {
+                        questions.push({ ...q, _ruleScore: fallbackScore });
+                    });
+                }
+            } else {
+                // 无规则时随机抽取，每题平均分
+                const defaultScore = totalScore / targetCount;
+                questions = poolQuestions.sort(() => Math.random() - 0.5).slice(0, targetCount).map(q => ({ ...q, _ruleScore: defaultScore }));
+            }
+
+            // 最终限制数量并打乱顺序
+            questions = questions.slice(0, targetCount).sort(() => Math.random() - 0.5);
+        }
 
         const totalQuestions = questions.length;
 

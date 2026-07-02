@@ -6,10 +6,34 @@
 (function () {
   'use strict';
 
-  // 检查是否在 Node.js 后端环境中（通过检测 window 是否有 fetch 和 API_BASE）
   if (typeof window === 'undefined' || !window.ApiClient) return;
 
-  // 等待 DOM 加载完成后检测后端
+  // 全局刷新标记：防止重复触发
+  let _refreshing = false;
+
+  // 通用：异步从后端拉取数据并刷新 localStorage，然后触发页面重新渲染
+  async function syncFromBackend(key, apiCall, renderFn) {
+    if (_refreshing) return;
+    _refreshing = true;
+    try {
+      const available = await ApiClient.useBackend();
+      if (available) {
+        const data = await apiCall();
+        if (data) {
+          Utils.saveLocal(key, data);
+          // 如果页面提供了渲染函数，重新渲染
+          if (renderFn && typeof renderFn === 'function') {
+            renderFn();
+          }
+        }
+      }
+    } catch (e) {
+      // 静默失败
+    } finally {
+      _refreshing = false;
+    }
+  }
+
   async function initBackendBridge() {
     const available = await ApiClient.checkBackend();
     console.log('[迁移层] 后端', available ? '已连接 ✓' : '不可用，使用 localStorage 模式');
@@ -28,13 +52,11 @@
           const result = await ApiClient.login(username, password);
           if (result.token) {
             ApiClient.setToken(result.token);
-            // 同步存储 current_user 供离线备用
             localStorage.setItem('current_user', JSON.stringify(result.user));
             return { success: true, user: result.user };
           }
         }
       } catch (e) {
-        // 后端登录失败，回退到 localStorage
         console.warn('[迁移层] 后端登录失败，使用本地模式:', e.message);
       }
       return origValidate(username, password);
@@ -42,14 +64,11 @@
   }
 
   function patchDataManagers() {
-    // 把各 Manager 的数据读写函数替换为 API 调用
-    // 优先后端，失败时回退 localStorage
 
     // --- AccountManager ---
     const origGetExaminee = AccountManager.getExamineeAccounts;
     AccountManager.getExamineeAccounts = function () {
       const stored = Utils.getLocal('examinee_accounts');
-      // 如果是管理员角色且后端可用，异步刷新
       ApiClient.useBackend().then(available => {
         if (available) {
           ApiClient.getUsers().then(data => {
@@ -111,6 +130,30 @@
       return stored || [];
     };
 
+    // 补丁 getExam：优先从后端获取单个考试（含题目快照）
+    const origGetExam = ExamManager.getExam;
+    ExamManager.getExam = function (id) {
+      // 异步从后端获取，同步返回 localStorage 缓存
+      ApiClient.useBackend().then(available => {
+        if (available) {
+          ApiClient.getExam(id).then(data => {
+            if (data.exam) {
+              // 更新 localStorage 中的单个考试
+              const exams = Utils.getLocal('admin_exams') || [];
+              const idx = exams.findIndex(e => String(e.id) === String(id));
+              if (idx !== -1) {
+                exams[idx] = { ...exams[idx], ...data.exam };
+              } else {
+                exams.push(data.exam);
+              }
+              Utils.saveLocal('admin_exams', exams);
+            }
+          }).catch(() => {});
+        }
+      });
+      return origGetExam.call(this, id);
+    };
+
     const origAddExam = ExamManager.addExam;
     ExamManager.addExam = async function (exam) {
       if (await ApiClient.useBackend()) {
@@ -170,7 +213,6 @@
     ResultManager.addResult = async function (resultData) {
       if (await ApiClient.useBackend()) {
         try {
-          // 先提交到后端
           const response = await ApiClient.submitResult(resultData);
           if (response.result) {
             resultData.reviewCompleted = response.result.reviewCompleted;
@@ -180,7 +222,6 @@
           }
         } catch (e) { console.warn('[迁移层] submitResult API 失败:', e.message); }
 
-        // 同步刷新本地结果
         try {
           const data = await ApiClient.getResults({});
           if (data.results) Utils.saveLocal('exam_results', data.results);
@@ -189,18 +230,69 @@
       return origAddResult.call(this, resultData);
     };
 
-    // --- DepartmentManager ---
+    // --- DepartmentManager（完整 CRUD 补丁）---
     const origGetDepts = DepartmentManager.getDepartments;
     DepartmentManager.getDepartments = function () {
       const stored = Utils.getLocal('departments');
       ApiClient.useBackend().then(available => {
         if (available) {
           ApiClient.getDepartments().then(data => {
-            if (data.departments) Utils.saveLocal('departments', data.departments);
+            if (data.departments) {
+              // 转换 parent_id → parentId 以兼容前端
+              const depts = data.departments.map(d => ({
+                id: d.id,
+                name: d.name,
+                level: d.level,
+                parentId: d.parent_id || d.parentId || null
+              }));
+              Utils.saveLocal('departments', depts);
+            }
           }).catch(() => {});
         }
       });
       return stored || [];
+    };
+
+    const origAddDept = DepartmentManager.addDepartment;
+    DepartmentManager.addDepartment = async function (dept) {
+      if (await ApiClient.useBackend()) {
+        try {
+          const result = await ApiClient.addDepartment({
+            name: dept.name,
+            level: dept.level,
+            parent_id: dept.parentId || null
+          });
+          dept.id = result.id;
+        } catch (e) { console.warn('[迁移层] addDepartment API 失败:', e.message); }
+      }
+      return origAddDept.call(this, dept);
+    };
+
+    const origUpdateDept = DepartmentManager.updateDepartment;
+    DepartmentManager.updateDepartment = async function (id, updates) {
+      if (await ApiClient.useBackend()) {
+        try {
+          await ApiClient.updateDepartment(id, {
+            name: updates.name,
+            level: updates.level,
+            parent_id: updates.parentId || null
+          });
+        } catch (e) { console.warn('[迁移层] updateDepartment API 失败:', e.message); }
+      }
+      return origUpdateDept.call(this, id, updates);
+    };
+
+    const origDeleteDept = DepartmentManager.deleteDepartment;
+    DepartmentManager.deleteDepartment = async function (id) {
+      if (await ApiClient.useBackend()) {
+        try {
+          await ApiClient.deleteDepartment(id);
+        } catch (e) {
+          console.warn('[迁移层] deleteDepartment API 失败:', e.message);
+          return { success: false, msg: e.message || '删除部门失败' };
+        }
+      }
+      return origDeleteDept.call(this, id);
     };
 
     // --- AdminManager ---

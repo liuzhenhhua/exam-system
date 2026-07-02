@@ -142,11 +142,16 @@
                     <div class="settings-card">
                         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
                             <div class="settings-card-title" style="margin-bottom:0;">管理员列表</div>
-                            <button class="btn-primary" onclick="showAddAdminModal()" style="font-size:13px;padding:8px 16px;">${ICONS.plus}新增管理员</button>
+                            <div style="display:flex;gap:8px;">
+                                <button class="btn-secondary" onclick="showBatchAdminModal()" style="font-size:13px;padding:8px 16px;">${ICONS.upload}批量导入</button>
+                                <button class="btn-secondary" onclick="batchDeleteAdmins()" style="font-size:13px;padding:8px 16px;color:#ef4444;">${ICONS.trash}批量删除</button>
+                                <button class="btn-primary" onclick="showAddAdminModal()" style="font-size:13px;padding:8px 16px;">${ICONS.plus}新增管理员</button>
+                            </div>
                         </div>
                         <table class="data-table">
                             <thead>
                                 <tr>
+                                    <th style="width:40px;"><input type="checkbox" id="admin-select-all" onchange="toggleAllAdmins(this)"></th>
                                     <th style="width:60px;">ID</th>
                                     <th>用户名</th>
                                     <th>姓名</th>
@@ -174,12 +179,17 @@
                     <div class="settings-card">
                         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
                             <div class="settings-card-title" style="margin-bottom:0;">部门架构管理</div>
-                            <button class="btn-primary" onclick="showAddDeptModal()" style="font-size:13px;padding:8px 16px;">${ICONS.plus}新增部门</button>
+                            <div style="display:flex;gap:8px;">
+                                <button class="btn-secondary" onclick="showBatchDeptModal()" style="font-size:13px;padding:8px 16px;">${ICONS.upload}批量导入</button>
+                                <button class="btn-secondary" onclick="batchDeleteDepts()" style="font-size:13px;padding:8px 16px;color:#ef4444;">${ICONS.trash}批量删除</button>
+                                <button class="btn-primary" onclick="showAddDeptModal()" style="font-size:13px;padding:8px 16px;">${ICONS.plus}新增部门</button>
+                            </div>
                         </div>
                         <p style="font-size:13px;color:#6b7280;margin-bottom:16px;">支持三级部门架构：一级部门 &gt; 二级部门 &gt; 三级部门。人员管理、数据看板将按此架构进行统计。</p>
                         <table class="data-table">
                             <thead>
                                 <tr>
+                                    <th style="width:40px;"><input type="checkbox" id="dept-select-all" onchange="toggleAllDepts(this)"></th>
                                     <th style="width:60px;">ID</th>
                                     <th style="width:120px;">级别</th>
                                     <th>部门名称</th>
@@ -301,6 +311,7 @@
                         : '<span style="font-size:12px;color:#ef4444;">未授权</span>');
                 html += `
                     <tr>
+                        <td>${a.role !== 'super_admin' ? `<input type="checkbox" class="admin-checkbox" value="${a.id}">` : ''}</td>
                         <td style="color:#9ca3af;font-size:13px;">#${a.id}</td>
                         <td style="font-weight:500;">${Utils.escapeHtml(a.username)}</td>
                         <td>${Utils.escapeHtml(a.real_name)}</td>
@@ -317,6 +328,134 @@
             tbody.innerHTML = html;
         }
 
+        // 管理员全选/取消全选
+        function toggleAllAdmins(checkbox) {
+            document.querySelectorAll('.admin-checkbox').forEach(cb => {
+                cb.checked = checkbox.checked;
+            });
+        }
+
+        // 批量删除管理员
+        async function batchDeleteAdmins() {
+            const selected = document.querySelectorAll('.admin-checkbox:checked');
+            if (selected.length === 0) {
+                Utils.toast('请先勾选要删除的管理员', 'warning');
+                return;
+            }
+            const ids = Array.from(selected).map(cb => parseInt(cb.value));
+            Utils.confirm(`确定要删除选中的 ${ids.length} 个管理员吗？`, async () => {
+                Utils.toast('删除中...', 'info');
+                let successCount = 0;
+                let failCount = 0;
+                for (const id of ids) {
+                    try {
+                        if (window.ApiClient && await ApiClient.useBackend()) {
+                            await ApiClient.deleteAdmin(id);
+                        }
+                        successCount++;
+                    } catch (e) {
+                        failCount++;
+                    }
+                }
+                // 重新从后端拉取
+                if (window.ApiClient && await ApiClient.useBackend()) {
+                    try {
+                        const data = await ApiClient.getAdmins();
+                        if (data.admins) {
+                            Utils.saveLocal('admins', data.admins);
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+                renderAdmins();
+                if (failCount > 0) {
+                    Utils.toast(`成功删除 ${successCount} 个，${failCount} 个删除失败`, 'warning');
+                } else {
+                    Utils.toast(`已删除 ${successCount} 个管理员`, 'success');
+                }
+            }, '批量删除管理员');
+        }
+
+        // 批量导入管理员
+        function showBatchAdminModal() {
+            const overlay = Utils.showModal(`
+                <div style="padding:28px;min-width:500px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:20px;">批量导入管理员</h3>
+                    <p style="font-size:13px;color:#6b7280;margin-bottom:16px;">每行一个管理员，格式：<code>用户名,姓名,密码,角色</code>（角色可选：admin/reviewer，默认 admin）</p>
+                    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#6b7280;line-height:1.8;">
+                        示例：<br>
+                        zhangsan,张三,Pass@2026,admin<br>
+                        lisi,李四,Pass@2026,reviewer<br>
+                        wangwu,王五,Pass@2026
+                    </div>
+                    <textarea id="batch-admin-text" class="input-field" rows="10" placeholder="zhangsan,张三,Pass@2026,admin&#10;lisi,李四,Pass@2026,reviewer" style="font-family:monospace;font-size:13px;resize:vertical;"></textarea>
+                    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:20px;">
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" onclick="processBatchAdminImport()">开始导入</button>
+                    </div>
+                </div>
+            `);
+        }
+
+        async function processBatchAdminImport() {
+            const text = document.getElementById('batch-admin-text').value.trim();
+            if (!text) { Utils.toast('请输入管理员数据', 'error'); return; }
+
+            const lines = text.split('\n').filter(l => l.trim());
+            const admins = lines.map(line => {
+                const parts = line.split(',').map(s => s.trim());
+                return {
+                    username: parts[0] || '',
+                    real_name: parts[1] || '',
+                    password: parts[2] || '',
+                    role: parts[3] || 'admin'
+                };
+            }).filter(a => a.username && a.real_name && a.password);
+
+            if (admins.length === 0) { Utils.toast('未解析到有效管理员数据', 'error'); return; }
+
+            Utils.toast(`正在导入 ${admins.length} 个管理员...`, 'info');
+
+            let successCount = 0;
+            let failCount = 0;
+
+            for (const admin of admins) {
+                try {
+                    if (window.ApiClient && await ApiClient.useBackend()) {
+                        await ApiClient.addAdmin({
+                            username: admin.username,
+                            real_name: admin.real_name,
+                            password: admin.password,
+                            role: admin.role,
+                            status: 'active'
+                        });
+                    } else {
+                        ExamSystem.AdminManager.addAdmin(admin);
+                    }
+                    successCount++;
+                } catch (e) {
+                    failCount++;
+                }
+            }
+
+            // 重新拉取
+            if (window.ApiClient && await ApiClient.useBackend()) {
+                try {
+                    const data = await ApiClient.getAdmins();
+                    if (data.admins) {
+                        Utils.saveLocal('admins', data.admins);
+                    }
+                } catch (e) { /* ignore */ }
+            }
+            Utils.closeModal(document.querySelector('.modal-overlay'));
+            renderAdmins();
+
+            if (failCount > 0) {
+                Utils.toast(`成功导入 ${successCount} 个，${failCount} 个失败（用户名可能已存在）`, 'warning');
+            } else {
+                Utils.toast(`成功导入 ${successCount} 个管理员`, 'success');
+            }
+        }
+
         // ========== 部门管理 ==========
         function renderDepartments() {
             const tbody = document.getElementById('dept-tbody');
@@ -329,6 +468,7 @@
                 const levelText = d.level === 1 ? '一级部门' : d.level === 2 ? '二级部门' : '三级部门';
                 html += `
                     <tr>
+                        <td><input type="checkbox" class="dept-checkbox" value="${d.id}"></td>
                         <td style="color:#9ca3af;font-size:13px;">#${d.id}</td>
                         <td><span class="badge ${d.level === 1 ? 'badge-purple' : d.level === 2 ? 'badge-info' : 'badge-gray'}">${levelText}</span></td>
                         <td style="font-weight:500;">${Utils.escapeHtml(d.name)}</td>
@@ -341,9 +481,157 @@
                 `;
             });
             if (deptsByLevel.length === 0) {
-                html = '<tr><td colspan="5" style="text-align:center;padding:40px;color:#9ca3af;">暂无部门配置，请先新增部门</td></tr>';
+                html = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#9ca3af;">暂无部门配置，请先新增部门</td></tr>';
             }
             tbody.innerHTML = html;
+        }
+
+        // 全选/取消全选
+        function toggleAllDepts(checkbox) {
+            document.querySelectorAll('.dept-checkbox').forEach(cb => {
+                cb.checked = checkbox.checked;
+            });
+        }
+
+        // 批量删除部门
+        async function batchDeleteDepts() {
+            const selected = document.querySelectorAll('.dept-checkbox:checked');
+            if (selected.length === 0) {
+                Utils.toast('请先勾选要删除的部门', 'warning');
+                return;
+            }
+            const ids = Array.from(selected).map(cb => parseInt(cb.value));
+            Utils.confirm(`确定要删除选中的 ${ids.length} 个部门吗？`, async () => {
+                Utils.toast('删除中...', 'info');
+                let successCount = 0;
+                let failCount = 0;
+                for (const id of ids) {
+                    try {
+                        if (window.ApiClient && await ApiClient.useBackend()) {
+                            await ApiClient.deleteDepartment(id);
+                        }
+                        successCount++;
+                    } catch (e) {
+                        failCount++;
+                    }
+                }
+                // 重新从后端拉取
+                if (window.ApiClient && await ApiClient.useBackend()) {
+                    const data = await ApiClient.getDepartments();
+                    if (data.departments) {
+                        const depts = data.departments.map(d => ({
+                            id: d.id, name: d.name, level: d.level, parentId: d.parent_id || d.parentId || null
+                        }));
+                        Utils.saveLocal('departments', depts);
+                    }
+                }
+                renderDepartments();
+                if (failCount > 0) {
+                    Utils.toast(`成功删除 ${successCount} 个，${failCount} 个删除失败（可能有关联用户或子部门）`, 'warning');
+                } else {
+                    Utils.toast(`已删除 ${successCount} 个部门`, 'success');
+                }
+            }, '批量删除部门');
+        }
+
+        // 批量导入部门
+        function showBatchDeptModal() {
+            const overlay = Utils.showModal(`
+                <div style="padding:28px;min-width:500px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:20px;">批量导入部门</h3>
+                    <p style="font-size:13px;color:#6b7280;margin-bottom:16px;">每行一个部门，格式：<code>级别,部门名称,上级部门名称</code>（上级部门名称可选，一级部门无需填写上级）</p>
+                    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#6b7280;line-height:1.8;">
+                        示例：<br>
+                        1,技术中心<br>
+                        2,前端组,技术中心<br>
+                        2,后端组,技术中心<br>
+                        3,React小组,前端组
+                    </div>
+                    <textarea id="batch-dept-text" class="input-field" rows="10" placeholder="1,技术中心&#10;2,前端组,技术中心&#10;2,后端组,技术中心" style="font-family:monospace;font-size:13px;resize:vertical;"></textarea>
+                    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:20px;">
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" onclick="processBatchDeptImport()">开始导入</button>
+                    </div>
+                </div>
+            `);
+        }
+
+        async function processBatchDeptImport() {
+            const text = document.getElementById('batch-dept-text').value.trim();
+            if (!text) { Utils.toast('请输入部门数据', 'error'); return; }
+
+            const lines = text.split('\n').filter(l => l.trim());
+            const depts = lines.map(line => {
+                const parts = line.split(',').map(s => s.trim());
+                return { level: parseInt(parts[0]) || 1, name: parts[1] || '', parentName: parts[2] || '' };
+            }).filter(d => d.name);
+
+            if (depts.length === 0) { Utils.toast('未解析到有效部门数据', 'error'); return; }
+
+            Utils.toast(`正在导入 ${depts.length} 个部门...`, 'info');
+
+            // 获取现有部门
+            let existingDepts = ExamSystem.DepartmentManager.getDepartments();
+            if (window.ApiClient && await ApiClient.useBackend()) {
+                const data = await ApiClient.getDepartments();
+                if (data.departments) {
+                    existingDepts = data.departments.map(d => ({
+                        id: d.id, name: d.name, level: d.level, parentId: d.parent_id || d.parentId || null
+                    }));
+                }
+            }
+
+            let successCount = 0;
+            let failCount = 0;
+
+            for (const dept of depts) {
+                if (dept.level !== 1 && !dept.parentName) {
+                    failCount++;
+                    continue;
+                }
+                // 查找上级部门
+                let parentId = null;
+                if (dept.level !== 1) {
+                    const parent = existingDepts.find(d => d.name === dept.parentName && d.level === dept.level - 1);
+                    if (!parent) {
+                        failCount++;
+                        continue;
+                    }
+                    parentId = parent.id;
+                }
+
+                try {
+                    if (window.ApiClient && await ApiClient.useBackend()) {
+                        const result = await ApiClient.addDepartment({
+                            name: dept.name,
+                            level: dept.level,
+                            parent_id: parentId
+                        });
+                        existingDepts.push({
+                            id: result.id, name: dept.name, level: dept.level, parentId: parentId
+                        });
+                    } else {
+                        const result = ExamSystem.DepartmentManager.addDepartment({
+                            name: dept.name, level: dept.level, parentId: parentId
+                        });
+                        existingDepts.push(result);
+                    }
+                    successCount++;
+                } catch (e) {
+                    failCount++;
+                }
+            }
+
+            // 更新本地缓存
+            Utils.saveLocal('departments', existingDepts);
+            Utils.closeModal(document.querySelector('.modal-overlay'));
+            renderDepartments();
+
+            if (failCount > 0) {
+                Utils.toast(`成功导入 ${successCount} 个，${failCount} 个失败（上级部门不存在或格式错误）`, 'warning');
+            } else {
+                Utils.toast(`成功导入 ${successCount} 个部门`, 'success');
+            }
         }
 
         function showAddDeptModal(editId) {
@@ -408,7 +696,7 @@
             ).join('');
         }
 
-        function saveDept(editId) {
+        async function saveDept(editId) {
             const level = parseInt(document.getElementById('dept-level').value, 10);
             const name = document.getElementById('dept-name').value.trim();
             const parentId = document.getElementById('dept-parent').value ? parseInt(document.getElementById('dept-parent').value, 10) : null;
@@ -416,30 +704,60 @@
             if (!name) { Utils.toast('请输入部门名称', 'error'); return; }
             if (level !== 1 && !parentId) { Utils.toast('请选择上级部门', 'error'); return; }
 
-            if (editId) {
-                ExamSystem.DepartmentManager.updateDepartment(editId, { name, level, parentId });
-                Utils.toast('部门信息已更新', 'success');
-            } else {
-                ExamSystem.DepartmentManager.addDepartment({ name, level, parentId });
-                Utils.toast('部门新增成功', 'success');
+            Utils.toast('保存中...', 'info');
+            try {
+                if (editId) {
+                    await ExamSystem.DepartmentManager.updateDepartment(editId, { name, level, parentId });
+                    Utils.toast('部门信息已更新', 'success');
+                } else {
+                    await ExamSystem.DepartmentManager.addDepartment({ name, level, parentId });
+                    Utils.toast('部门新增成功', 'success');
+                }
+                Utils.closeModal(document.querySelector('.modal-overlay'));
+                // 重新从后端拉取最新数据
+                if (window.ApiClient && await ApiClient.useBackend()) {
+                    const data = await ApiClient.getDepartments();
+                    if (data.departments) {
+                        const depts = data.departments.map(d => ({
+                            id: d.id, name: d.name, level: d.level, parentId: d.parent_id || d.parentId || null
+                        }));
+                        Utils.saveLocal('departments', depts);
+                    }
+                }
+                renderDepartments();
+            } catch (e) {
+                Utils.toast(e.message || '保存失败', 'error');
             }
-            Utils.closeModal(document.querySelector('.modal-overlay'));
-            renderDepartments();
         }
 
         function editDept(id) {
             showAddDeptModal(id);
         }
 
-        function deleteDept(id) {
+        async function deleteDept(id) {
             const dept = ExamSystem.DepartmentManager.getDepartment(id);
-            Utils.confirm(`确定要删除部门「${Utils.escapeHtml(dept.name)}」吗？删除后将无法恢复。`, () => {
-                const res = ExamSystem.DepartmentManager.deleteDepartment(id);
-                if (res.success) {
-                    Utils.toast('部门已删除', 'success');
-                    renderDepartments();
-                } else {
-                    Utils.toast(res.msg, 'error');
+            Utils.confirm(`确定要删除部门「${Utils.escapeHtml(dept.name)}」吗？删除后将无法恢复。`, async () => {
+                Utils.toast('删除中...', 'info');
+                try {
+                    const res = await ExamSystem.DepartmentManager.deleteDepartment(id);
+                    if (res.success) {
+                        Utils.toast('部门已删除', 'success');
+                        // 重新从后端拉取最新数据
+                        if (window.ApiClient && await ApiClient.useBackend()) {
+                            const data = await ApiClient.getDepartments();
+                            if (data.departments) {
+                                const depts = data.departments.map(d => ({
+                                    id: d.id, name: d.name, level: d.level, parentId: d.parent_id || d.parentId || null
+                                }));
+                                Utils.saveLocal('departments', depts);
+                            }
+                        }
+                        renderDepartments();
+                    } else {
+                        Utils.toast(res.msg, 'error');
+                    }
+                } catch (e) {
+                    Utils.toast(e.message || '删除失败', 'error');
                 }
             }, '删除部门');
         }

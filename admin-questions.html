@@ -215,6 +215,7 @@
                 <div class="top-bar-title">题库管理</div>
                 <div class="top-bar-right">
                     <button class="btn-secondary" onclick="showProjectManageModal()" style="font-size:13px;padding:8px 16px;display:flex;align-items:center;gap:6px;">${ICONS.building}项目管理</button>
+                    <button class="btn-secondary" onclick="exportQuestions()" style="font-size:13px;padding:8px 16px;display:flex;align-items:center;gap:6px;">${ICONS.download}导出题库</button>
                     <div class="icon-btn" onclick="showImportModal()">
                         ${ICONS.upload}
                     </div>
@@ -974,6 +975,72 @@
             } else {
                 Utils.toast('模板下载功能需要联网', 'warning');
             }
+        }
+
+        // 导出题库到 Excel
+        async function exportQuestions() {
+            let questions = QuestionBankManager.getQuestions();
+
+            // 如果后端可用，从后端获取最新数据
+            if (window.ApiClient && await ApiClient.useBackend()) {
+                try {
+                    const data = await ApiClient.getQuestions({ pageSize: 5000 });
+                    if (data.questions && data.questions.length > 0) {
+                        questions = data.questions;
+                    }
+                } catch (e) {
+                    console.warn('从后端获取题目失败，使用本地数据', e);
+                }
+            }
+
+            // 过滤已删除的题目
+            questions = questions.filter(q => q.status !== 'deleted');
+
+            if (questions.length === 0) {
+                Utils.toast('暂无可导出的题目', 'warning');
+                return;
+            }
+
+            if (typeof XLSX === 'undefined') {
+                Utils.toast('导出功能需要联网加载Excel库', 'warning');
+                return;
+            }
+
+            const typeMap = { single: '单选题', multiple: '多选题', judge: '判断题', essay: '简答题' };
+            const diffMap = { easy: '简单', medium: '中等', hard: '困难' };
+
+            const data = questions.map(q => {
+                const row = {
+                    '题型': typeMap[q.type] || q.type || '',
+                    '题干': q.content || '',
+                    '分类': q.category || '',
+                    '难度': diffMap[q.difficulty] || q.difficulty || '',
+                };
+                // 选项
+                if (q.options && Array.isArray(q.options)) {
+                    q.options.forEach((opt, i) => {
+                        row['选项' + String.fromCharCode(65 + i)] = opt;
+                    });
+                }
+                // 答案
+                if (Array.isArray(q.answer)) {
+                    row['答案'] = q.answer.map(i => String.fromCharCode(65 + i)).join('');
+                } else if (typeof q.answer === 'number') {
+                    row['答案'] = String.fromCharCode(65 + q.answer);
+                } else {
+                    row['答案'] = q.answer || '';
+                }
+                row['解析'] = q.analysis || '';
+                return row;
+            });
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            ws['!cols'] = [{wch:8},{wch:40},{wch:15},{wch:8},{wch:25},{wch:25},{wch:25},{wch:25},{wch:8},{wch:35}];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '题库');
+            const filename = `题库导出_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            XLSX.writeFile(wb, filename);
+            Utils.toast(`已导出 ${questions.length} 道题目`, 'success');
         }
 
         async function handleFileUpload(event) {
