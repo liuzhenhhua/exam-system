@@ -824,7 +824,7 @@
         }
 
         // 执行交卷
-        function doSubmit(isAuto = false) {
+        async function doSubmit(isAuto = false) {
             clearInterval(timerInterval);
             clearInterval(autoSaveInterval);
 
@@ -917,8 +917,12 @@
                 isAuto: isAuto
             };
 
-            // 保存到全局结果存储（管理端可读取）
-            ExamSystem.ResultManager.addResult(examResult);
+            // 等待数据保存完成（含后端 API 同步）再跳转
+            try {
+                await ExamSystem.ResultManager.addResult(examResult);
+            } catch (e) {
+                console.warn('保存考试结果时出错:', e);
+            }
 
             // 同时保存到本地供结果页展示
             Utils.saveLocal('exam_result', examResult);

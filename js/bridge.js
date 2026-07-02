@@ -69,22 +69,24 @@
     const origGetExaminee = AccountManager.getExamineeAccounts;
     AccountManager.getExamineeAccounts = function () {
       const stored = Utils.getLocal('examinee_accounts');
-      ApiClient.useBackend().then(available => {
-        if (available) {
-          ApiClient.getUsers().then(data => {
-            if (data.users) {
-              // 字段名转换：后端 snake_case → 前端 camelCase
-              const users = data.users.map(u => ({
-                ...u,
-                departmentId: u.department_id || u.departmentId || null,
-                real_name: u.real_name || u.realName || '',
-                project_ids: u.project_ids || [],
-              }));
-              Utils.saveLocal('examinee_accounts', users);
-            }
-          }).catch(() => {});
-        }
-      });
+      if (!_mutationLock) {
+        ApiClient.useBackend().then(available => {
+          if (available && !_mutationLock) {
+            ApiClient.getUsers().then(data => {
+              if (data.users && !_mutationLock) {
+                // 字段名转换：后端 snake_case → 前端 camelCase
+                const users = data.users.map(u => ({
+                  ...u,
+                  departmentId: u.department_id || u.departmentId || null,
+                  real_name: u.real_name || u.realName || '',
+                  project_ids: u.project_ids || [],
+                }));
+                Utils.saveLocal('examinee_accounts', users);
+              }
+            }).catch(() => {});
+          }
+        });
+      }
       return stored || [];
     };
 
@@ -112,13 +114,16 @@
     const origUpdateAccount = AccountManager.updateAccount;
     AccountManager.updateAccount = async function (id, updates) {
       if (await ApiClient.useBackend()) {
+        _mutationLock = true;
         // 字段名转换：camelCase → snake_case
         const apiUpdates = { ...updates };
         if (updates.departmentId !== undefined) {
           apiUpdates.department_id = updates.departmentId;
           delete apiUpdates.departmentId;
         }
-        ApiClient.updateUser(id, apiUpdates).catch(() => {});
+        try { await ApiClient.updateUser(id, apiUpdates); }
+        catch (e) { console.warn('[迁移层] updateUser API 失败:', e.message); }
+        setTimeout(() => { _mutationLock = false; }, 2000);
       }
       return origUpdateAccount.call(this, id, updates);
     };
@@ -126,7 +131,10 @@
     const origDeleteAccount = AccountManager.deleteAccount;
     AccountManager.deleteAccount = async function (id) {
       if (await ApiClient.useBackend()) {
-        ApiClient.deleteUser(id).catch(() => {});
+        _mutationLock = true;
+        try { await ApiClient.deleteUser(id); }
+        catch (e) { console.warn('[迁移层] deleteUser API 失败:', e.message); }
+        setTimeout(() => { _mutationLock = false; }, 2000);
       }
       return origDeleteAccount.call(this, id);
     };
@@ -134,6 +142,7 @@
     const origBatchAdd = AccountManager.batchAddAccounts;
     AccountManager.batchAddAccounts = async function (accountList) {
       if (await ApiClient.useBackend() && accountList.length > 0) {
+        _mutationLock = true;
         // 字段名转换：camelCase → snake_case
         const apiUsers = accountList.map(a => ({
           username: a.username,
@@ -146,7 +155,9 @@
           project_ids: a.project_ids || [],
           created: a.created
         }));
-        ApiClient.batchAddUsers(apiUsers).catch(() => {});
+        try { await ApiClient.batchAddUsers(apiUsers); }
+        catch (e) { console.warn('[迁移层] batchAddUsers API 失败:', e.message); }
+        setTimeout(() => { _mutationLock = false; }, 2000);
       }
       return origBatchAdd.call(this, accountList);
     };
@@ -244,36 +255,81 @@
     };
 
     // --- ResultManager ---
+    // 后端 DB 行 → 前端 camelCase 格式转换
+    function mapBackendResult(r) {
+      if (!r) return r;
+      // 如果已经是 camelCase 格式（本地创建的），直接返回
+      if (r.examId !== undefined) return r;
+      // 从后端 DB 行转换
+      const mapped = {
+        id: r.id,
+        examId: r.exam_id,
+        username: r.username,
+        realName: r.real_name || r.realName || '',
+        department: r.department || '',
+        score: Number(r.score) || 0,
+        passScore: r.pass_score || 60,
+        passed: r.passed === null || r.passed === undefined ? null : !!r.passed,
+        correctCount: r.correct_count || 0,
+        wrongCount: r.wrong_count || 0,
+        totalScore: r.total_score || 100,
+        autoScore: Number(r.auto_score) || 0,
+        objectiveScore: Number(r.objective_score !== undefined ? r.objective_score : r.auto_score) || 0,
+        manualReviewCount: r.manual_review_count || 0,
+        reviewCompleted: r.review_completed === undefined ? (r.manual_review_count === 0) : !!r.review_completed,
+        submittedAt: r.submitted_at || '',
+        timeSpent: r.time_spent || ''
+      };
+      return mapped;
+    }
+
+    // 突变锁：防止后台同步覆盖刚执行的增删改
+    let _mutationLock = false;
+    function withMutationLock(fn) {
+      return async function (...args) {
+        _mutationLock = true;
+        try { return await fn.apply(this, args); }
+        finally { setTimeout(() => { _mutationLock = false; }, 2000); }
+      };
+    }
+
     const origGetResults = ResultManager.getResults;
     ResultManager.getResults = function () {
       const stored = Utils.getLocal('exam_results');
-      ApiClient.useBackend().then(available => {
-        if (available) {
-          ApiClient.getResults({}).then(data => {
-            if (data.results) Utils.saveLocal('exam_results', data.results);
-          }).catch(() => {});
-        }
-      });
+      if (!_mutationLock) {
+        ApiClient.useBackend().then(available => {
+          if (available && !_mutationLock) {
+            ApiClient.getResults({}).then(data => {
+              if (data.results && !_mutationLock) {
+                const results = data.results.map(mapBackendResult);
+                Utils.saveLocal('exam_results', results);
+              }
+            }).catch(() => {});
+          }
+        });
+      }
       return stored || [];
     };
 
     const origAddResult = ResultManager.addResult;
     ResultManager.addResult = async function (resultData) {
       if (await ApiClient.useBackend()) {
+        _mutationLock = true;
         try {
           const response = await ApiClient.submitResult(resultData);
           if (response.result) {
-            resultData.reviewCompleted = response.result.reviewCompleted;
-            resultData.passed = response.result.passed;
-            resultData.score = response.result.score;
-            resultData.objectiveScore = response.result.objectiveScore;
+            const backendResult = response.result;
+            // 合并后端返回的字段，保留前端已有的 examTitle/results/correctRate 等
+            resultData.id = backendResult.id || resultData.id;
+            resultData.reviewCompleted = backendResult.reviewCompleted !== undefined ? backendResult.reviewCompleted : (resultData.manualReviewCount === 0);
+            resultData.passed = backendResult.passed !== undefined ? backendResult.passed : resultData.passed;
+            resultData.score = backendResult.score !== undefined ? Number(backendResult.score) : resultData.score;
+            resultData.objectiveScore = backendResult.objectiveScore !== undefined ? Number(backendResult.objectiveScore) : (resultData.autoScore || resultData.score);
           }
         } catch (e) { console.warn('[迁移层] submitResult API 失败:', e.message); }
-
-        try {
-          const data = await ApiClient.getResults({});
-          if (data.results) Utils.saveLocal('exam_results', data.results);
-        } catch (e) {}
+        // 不再从后端重新拉取全部结果（会覆盖本地 examTitle/results 等字段）
+        // 而是让 origAddResult 把 resultData 存入 localStorage
+        setTimeout(() => { _mutationLock = false; }, 2000);
       }
       return origAddResult.call(this, resultData);
     };

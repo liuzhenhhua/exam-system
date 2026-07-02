@@ -415,11 +415,45 @@
         }
 
         // 渲染成绩查询列表
-        function renderScoreList() {
+        async function renderScoreList() {
             const container = document.getElementById('score-list-container');
 
-            // 从 ResultManager 获取当前用户的所有真实考试结果
-            const myResults = ExamSystem.ResultManager.getResultsByExaminee(user.username);
+            // 优先从后端获取我的成绩
+            let myResults;
+            if (window.ApiClient && await ApiClient.useBackend()) {
+                try {
+                    const data = await ApiClient.getMyResults();
+                    // 后端返回 snake_case，需转换为前端 camelCase + 关联考试标题
+                    const exams = ExamSystem.ExamManager.getExams();
+                    myResults = (data.results || []).map(r => {
+                        const examInfo = exams.find(e => String(e.id) === String(r.exam_id));
+                        return {
+                            id: r.id,
+                            examId: r.exam_id,
+                            examTitle: examInfo ? examInfo.title : ('考试 #' + r.exam_id),
+                            username: r.username,
+                            realName: r.real_name || '',
+                            department: r.department || '',
+                            score: Number(r.score) || 0,
+                            totalScore: r.total_score || 100,
+                            passScore: r.pass_score || 60,
+                            passed: r.passed === null || r.passed === undefined ? null : !!r.passed,
+                            correctCount: r.correct_count || 0,
+                            wrongCount: r.wrong_count || 0,
+                            manualReviewCount: r.manual_review_count || 0,
+                            reviewCompleted: r.review_completed === undefined ? true : !!r.review_completed,
+                            objectiveScore: Number(r.objective_score !== undefined ? r.objective_score : r.auto_score) || 0,
+                            submittedAt: r.submitted_at || ''
+                        };
+                    });
+                    Utils.saveLocal('exam_results', myResults);
+                } catch (e) {
+                    console.warn('从后端获取我的成绩失败，使用本地数据:', e);
+                    myResults = ExamSystem.ResultManager.getResultsByExaminee(user.username);
+                }
+            } else {
+                myResults = ExamSystem.ResultManager.getResultsByExaminee(user.username);
+            }
 
             if (myResults.length === 0) {
                 container.innerHTML = `
@@ -448,6 +482,9 @@
                 const statusBadge = !reviewCompleted
                     ? '<span class="badge badge-warning">待阅卷</span>'
                     : (passed ? '<span class="badge badge-success">已通过</span>' : '<span class="badge badge-danger">未通过</span>');
+                // 计算正确率
+                const totalQ = (r.correctCount || 0) + (r.wrongCount || 0) + (r.manualReviewCount || 0);
+                const correctRate = totalQ > 0 ? Math.round((r.correctCount || 0) / totalQ * 100) : 0;
 
                 html += `
                     <div class="score-card fade-in">
@@ -469,7 +506,7 @@
                                 <div class="score-stat-label">答错题数</div>
                             </div>
                             <div class="score-stat-item">
-                                <div class="score-stat-value">${r.correctRate || 0}%</div>
+                                <div class="score-stat-value">${correctRate}%</div>
                                 <div class="score-stat-label">正确率</div>
                             </div>
                             <div class="score-stat-item">
@@ -586,12 +623,14 @@
                     }
                 }
             });
+            // 已提交的考试ID集合，用于阻止重复交卷
+            const submittedExamIdSet = new Set(completedExamIds.map(id => String(id)));
 
             let html = '';
 
-            // 待参加 & 即将开始
-            const pendingExams = exams.filter(e => e.status === 'available' || e.status === 'upcoming');
-            const completedExams = exams.filter(e => e.status === 'completed');
+            // 待参加 & 即将开始（排除已交卷的）
+            const pendingExams = exams.filter(e => (e.status === 'available' || e.status === 'upcoming') && !submittedExamIdSet.has(String(e.id)));
+            const completedExams = exams.filter(e => e.status === 'completed' || submittedExamIdSet.has(String(e.id)));
 
             if (pendingExams.length > 0) {
                 pendingExams.forEach(exam => {
@@ -684,6 +723,26 @@
         }
 
         async function showRules(examId) {
+            // 检查是否已交卷（前端 + 后端双重检查）
+            const myResults = ExamSystem.ResultManager.getResultsByExaminee(user.username);
+            if (myResults.some(r => String(r.examId) === String(examId))) {
+                Utils.toast('您已提交过该考试，无法重复参加', 'warning');
+                return;
+            }
+
+            // 后端二次检查
+            if (window.ApiClient && await ApiClient.useBackend()) {
+                try {
+                    const data = await ApiClient.getMyResults();
+                    if (data.results && data.results.some(r => String(r.exam_id) === String(examId))) {
+                        Utils.toast('您已提交过该考试，无法重复参加', 'warning');
+                        // 刷新成绩列表
+                        renderScoreList();
+                        return;
+                    }
+                } catch (e) { /* 静默 */ }
+            }
+
             // 优先从后端 API 获取考试信息（含题目快照）
             let exam;
             if (window.ApiClient && await ApiClient.useBackend()) {

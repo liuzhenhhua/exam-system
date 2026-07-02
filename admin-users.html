@@ -253,6 +253,14 @@
             renderAccounts();
         }
 
+        // 填充部门级联筛选
+        function populateDeptFilter() {
+            const container = document.getElementById('filter-dept-cascader');
+            if (!container) return;
+            container.innerHTML = ExamSystem.DepartmentManager.departmentCascaderHtml('', 'filter-dept');
+            setupDeptCascader('filter-dept', renderAccounts);
+        }
+
         // 部门级联事件绑定
         function setupDeptCascader(idPrefix, callback) {
             const l1 = document.getElementById(`${idPrefix}-l1`);
@@ -544,7 +552,7 @@
             setupDeptCascader('edit-dept', null);
         }
 
-        function saveEditAccount(id) {
+        async function saveEditAccount(id) {
             const realName = document.getElementById('edit-realname').value.trim();
             const departmentId = ExamSystem.DepartmentManager.getSelectedFromCascader('edit-dept');
             const position = document.getElementById('edit-position').value.trim();
@@ -564,30 +572,36 @@
             if (password) {
                 updates.password = password;
             }
-            ExamSystem.AccountManager.updateAccount(id, updates);
-
-            Utils.closeModal(document.querySelector('.modal-overlay'));
-            Utils.toast('账号信息已更新', 'success');
-            renderAccounts();
+            const btn = document.querySelector('.btn-primary[onclick*="saveEditAccount"]');
+            if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+            try {
+                await ExamSystem.AccountManager.updateAccount(id, updates);
+                Utils.closeModal(document.querySelector('.modal-overlay'));
+                Utils.toast('账号信息已更新', 'success');
+                renderAccounts();
+            } catch (e) {
+                Utils.toast('更新失败：' + e.message, 'error');
+                if (btn) { btn.disabled = false; btn.textContent = '保存修改'; }
+            }
         }
 
         // 重置密码
-        function resetPwd(id) {
+        async function resetPwd(id) {
             const accounts = ExamSystem.AccountManager.getExamineeAccounts();
             const account = accounts.find(a => a.id === id);
-            Utils.confirm(`确定要将 ${Utils.escapeHtml(account.real_name)}（${Utils.escapeHtml(account.username)}）的密码重置为默认密码吗？`, () => {
-                ExamSystem.AccountManager.resetPassword(id);
+            Utils.confirm(`确定要将 ${Utils.escapeHtml(account.real_name)}（${Utils.escapeHtml(account.username)}）的密码重置为默认密码吗？`, async () => {
+                await ExamSystem.AccountManager.resetPassword(id);
                 Utils.toast('密码已重置为默认密码', 'success');
             }, '重置密码');
         }
 
         // 切换状态
-        function toggleAccountStatus(id) {
+        async function toggleAccountStatus(id) {
             const accounts = ExamSystem.AccountManager.getExamineeAccounts();
             const account = accounts.find(a => a.id === id);
             const action = account.status === 'active' ? '禁用' : '启用';
-            Utils.confirm(`确定要${action}账号 ${Utils.escapeHtml(account.real_name)}（${Utils.escapeHtml(account.username)}）吗？${account.status === 'active' ? '禁用后该用户将无法登录系统。' : ''}`, () => {
-                ExamSystem.AccountManager.toggleStatus(id);
+            Utils.confirm(`确定要${action}账号 ${Utils.escapeHtml(account.real_name)}（${Utils.escapeHtml(account.username)}）吗？${account.status === 'active' ? '禁用后该用户将无法登录系统。' : ''}`, async () => {
+                await ExamSystem.AccountManager.toggleStatus(id);
                 Utils.toast(`账号已${action}`, 'success');
                 updateStats();
                 renderAccounts();
@@ -595,11 +609,11 @@
         }
 
         // 删除账号
-        function deleteAccount(id) {
+        async function deleteAccount(id) {
             const accounts = ExamSystem.AccountManager.getExamineeAccounts();
             const account = accounts.find(a => a.id === id);
-            Utils.confirm(`确定要删除账号 ${Utils.escapeHtml(account.real_name)}（${Utils.escapeHtml(account.username)}）吗？删除后无法恢复。`, () => {
-                ExamSystem.AccountManager.deleteAccount(id);
+            Utils.confirm(`确定要删除账号 ${Utils.escapeHtml(account.real_name)}（${Utils.escapeHtml(account.username)}）吗？删除后无法恢复。`, async () => {
+                await ExamSystem.AccountManager.deleteAccount(id);
                 Utils.toast('账号已删除', 'success');
                 updateStats();
                 renderAccounts();
