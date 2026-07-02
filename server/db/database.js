@@ -1,164 +1,174 @@
 /**
- * sql.js 数据库包装层
- * 提供 better-sqlite3 兼容 API：
- *   db.prepare(sql).run(params)   → INSERT/UPDATE/DELETE
- *   db.prepare(sql).get(params)    → SELECT 单行
- *   db.prepare(sql).all(params)    → SELECT 多行
- * 参数支持数组 [p1, p2] 或对象 {col: val}（按 ? 顺序提取对象值）
+ * 数据库统一入口
+ * 自动检测：有 DATABASE_URL → PostgreSQL，否则 → sql.js (SQLite)
+ * 所有 API 统一为 async：db.get(sql, params), db.all(sql, params), db.run(sql, params)
  */
 const path = require('path');
 const fs = require('fs');
 
-const DB_PATH = path.join(__dirname, '..', 'data', 'exam.db');
+let _db = null;   // 适配器实例
+let _type = null;  // 'pg' | 'sqlite'
 
-let _db = null;
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'exam.db');
 
-// ---- sql.js Statement 兼容包装 ----
+// ---- SQLite 同步适配器（包装为 async API） ----
 
-class Stmt {
-  constructor(raw, sql) {
-    this._raw = raw;    // sql.js Statement
-    this._sql = sql;
-  }
-
-  /** 绑定参数（数组或对象）并执行一步 */
-  _exec(params) {
-    if (params !== undefined && params !== null) {
-      if (Array.isArray(params)) {
-        this._raw.bind(params);
-      } else if (typeof params === 'object') {
-        const vals = extractObjectValues(this._sql, params);
-        this._raw.bind(vals);
-      } else {
-        // 标量值：包装为单元素数组
-        this._raw.bind([params]);
-      }
-    }
-    const hasRow = this._raw.step();
-    const row = hasRow ? this._raw.getAsObject() : undefined;
-    this._raw.reset(); // 复用 statement
-    return row;
-  }
-
-  run(...params) {
-    const row = this._exec(params.length === 1 ? params[0] : params);
-    return { changes: row ? 1 : 0 };
-  }
-
-  get(...params) {
-    return this._exec(params.length === 1 ? params[0] : params);
-  }
-
-  all(...params) {
-    const rows = [];
-    if (params.length === 1) {
-      const p = params[0];
-      if (Array.isArray(p)) {
-        this._raw.bind(p);
-      } else if (typeof p === 'object' && p !== null) {
-        this._raw.bind(extractObjectValues(this._sql, p));
-      } else {
-        this._raw.bind([p]);
-      }
-      while (this._raw.step()) rows.push(this._raw.getAsObject());
-    } else if (params.length > 0) {
-      this._raw.bind(params);
-      while (this._raw.step()) rows.push(this._raw.getAsObject());
-    } else {
-      // 无参数
-      while (this._raw.step()) rows.push(this._raw.getAsObject());
-    }
-    return rows;
-  }
-}
-
-/**
- * 从 SQL 中按 ? 顺序提取对象属性值
- */
-function extractObjectValues(sql, obj) {
-  const vals = [];
-  let depth = 0;
-  for (let i = 0; i < sql.length; i++) {
-    if (sql[i] === "'") depth ^= 1;
-    if (depth === 0 && sql[i] === '?') vals.push(obj[Object.keys(obj)[vals.length]]);
-  }
-  return vals;
-}
-
-// ---- sql.js Database 兼容包装 ----
-
-class SqlJsDb {
+class SqliteAdapter {
   constructor(sqljsDb) {
-    this._inner = sqljsDb;
+    this._inner = sqljsDb;  // SqlJsDb 实例（原 database.js 中的）
+    this._saveTimer = null;
+    this._startAutoSave();
   }
 
-  exec(sql) {
-    this._inner.run(sql);
+  _startAutoSave() {
+    this._saveTimer = setInterval(() => {
+      try { this._inner._save(); } catch (e) { /* ignore */ }
+    }, 30000);
   }
 
-  run(sql, ...params) {
-    const stmt = this._inner.prepare(sql);
-    if (params.length > 0) {
-      stmt.bind(params.length === 1 ? [params[0]] : params);
+  async get(sql, ...params) {
+    const p = this._normalizeParams(params.length === 1 ? params[0] : params);
+    return this._inner.prepare(sql).get(...p);
+  }
+
+  async all(sql, ...params) {
+    const p = this._normalizeParams(params.length === 1 ? params[0] : params);
+    return this._inner.prepare(sql).all(...p);
+  }
+
+  async run(sql, ...params) {
+    const p = this._normalizeParams(params.length === 1 ? params[0] : params);
+    return this._inner.prepare(sql).run(...p);
+  }
+
+  async exec(sql) {
+    this._inner.exec(sql);
+  }
+
+  async transaction(callback) {
+    // SQLite 的事务通过 SqlJsDb.transaction() 实现
+    // 但 callback 现在是 async，需要特殊处理
+    this._inner._inner.run('BEGIN');
+    try {
+      // 创建事务适配器
+      const txAdapter = new SqliteTxAdapter(this._inner);
+      await callback(txAdapter);
+      this._inner._inner.run('COMMIT');
+      this._inner._save();
+    } catch (err) {
+      this._inner._inner.run('ROLLBACK');
+      throw err;
     }
-    stmt.step();
-    stmt.free();
   }
 
-  pragma(p) {
-    try { this._inner.run('PRAGMA ' + p); } catch (e) {}
-  }
-
-  prepare(sql) {
-    return new Stmt(this._inner.prepare(sql), sql);
-  }
-
-  _save() {
-    const data = this._inner.export();
-    fs.writeFileSync(DB_PATH, Buffer.from(data));
-  }
-
-  close() {
-    this._save();
+  async close() {
+    if (this._saveTimer) clearInterval(this._saveTimer);
     this._inner.close();
   }
+
+  async healthCheck() {
+    this._inner._inner.run('SELECT 1');
+    return true;
+  }
+
+  _normalizeParams(params) {
+    if (params === undefined || params === null) return [];
+    if (Array.isArray(params)) return params;
+    return [params];
+  }
 }
 
-// ---- 对外 API ----
+/** SQLite 事务适配器 */
+class SqliteTxAdapter {
+  constructor(inner) {
+    this._inner = inner;
+  }
 
-function init(sqljs) {
+  async get(sql, ...params) {
+    const p = params.length === 1 && !Array.isArray(params[0]) ? params : (params.length === 1 ? params[0] : params);
+    return this._inner.prepare(sql).get(...(Array.isArray(p) ? p : [p]));
+  }
+
+  async all(sql, ...params) {
+    const p = params.length === 1 && !Array.isArray(params[0]) ? params : (params.length === 1 ? params[0] : params);
+    return this._inner.prepare(sql).all(...(Array.isArray(p) ? p : [p]));
+  }
+
+  async run(sql, ...params) {
+    const p = params.length === 1 && !Array.isArray(params[0]) ? params : (params.length === 1 ? params[0] : params);
+    return this._inner.prepare(sql).run(...(Array.isArray(p) ? p : [p]));
+  }
+
+  async exec(sql) {
+    this._inner.exec(sql);
+  }
+}
+
+// ---- 初始化 ----
+
+async function init(SQL_or_none) {
   if (_db) return _db;
 
-  const dataDir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
+  const databaseUrl = process.env.DATABASE_URL;
 
-  let rawDb;
-  if (fs.existsSync(DB_PATH)) {
-    const buf = fs.readFileSync(DB_PATH);
-    rawDb = new sqljs.Database(buf);
+  if (databaseUrl) {
+    // PostgreSQL 模式
+    console.log('[数据库] 使用 PostgreSQL (云端模式)');
+    const { PgAdapter } = require('./pg-adapter');
+    _db = new PgAdapter(databaseUrl);
+    _type = 'pg';
+    await _db.healthCheck();
+    const { initSchema } = require('./schema');
+    await initSchema(_db, _type);
   } else {
-    rawDb = new sqljs.Database();
+    // SQLite 模式
+    console.log('[数据库] 使用 SQLite (本地模式)');
+    const initSqlJs = require('sql.js');
+    const SQL = SQL_or_none || (await initSqlJs());
+
+    const dataDir = path.dirname(DB_PATH);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+
+    let rawDb;
+    if (fs.existsSync(DB_PATH)) {
+      const buf = fs.readFileSync(DB_PATH);
+      rawDb = new SQL.Database(buf);
+    } else {
+      rawDb = new SQL.Database();
+    }
+
+    // 包装为 SqlJsDb（保留原 compat 层）
+    const { SqlJsDb } = require('./sqlite-compat');
+    const dbCompat = new SqlJsDb(rawDb);
+    dbCompat.pragma('foreign_keys = ON');
+
+    const { initSchema } = require('./schema');
+    initSchema(dbCompat, 'sqlite');
+
+    _db = new SqliteAdapter(dbCompat);
+    _type = 'sqlite';
   }
 
-  const db = new SqlJsDb(rawDb);
-  db.pragma('foreign_keys = ON');
-
-  const { initSchema } = require('./schema');
-  initSchema(db);
-
-  _db = db;
   return _db;
 }
 
 function getDb() {
-  if (!_db) throw new Error('请先调用 init(sqljs) 初始化数据库');
+  if (!_db) throw new Error('请先调用 init() 初始化数据库');
   return _db;
 }
 
-function closeDb() {
-  if (_db) { _db.close(); _db = null; }
+function getDbType() {
+  return _type;
 }
 
-module.exports = { init, getDb, closeDb };
+async function closeDb() {
+  if (_db) {
+    await _db.close();
+    _db = null;
+    _type = null;
+  }
+}
+
+module.exports = { init, getDb, getDbType, closeDb };

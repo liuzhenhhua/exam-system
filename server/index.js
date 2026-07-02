@@ -1,19 +1,19 @@
 /**
  * 企业在线考试系统 - 后端服务入口
- * Node.js + Express + sql.js (纯 JS SQLite，零依赖编译)
+ * Node.js + Express + 双数据库适配（SQLite / PostgreSQL）
+ * Railway 部署：有 DATABASE_URL 时自动切换 PostgreSQL
  */
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const initSqlJs = require('sql.js');
 
-const { init: initDb, closeDb } = require('./db/database');
+const { init: initDb, getDb, closeDb, getDbType } = require('./db/database');
 
 async function main() {
-  // 1. 初始化数据库（sql.js WASM 加载完成后立即可用，API 同步）
-  const SQL = await initSqlJs();
-  const { init: initDb, closeDb } = require('./db/database');
-  initDb(SQL);
+  // 1. 初始化数据库（自动检测 PostgreSQL / SQLite）
+  await initDb();
+  const dbType = getDbType();
+  console.log(`[数据库] 类型: ${dbType}`);
 
   // 2. 初始化 Express
   const app = express();
@@ -27,6 +27,17 @@ async function main() {
   // 静态文件（前端页面）
   app.use(express.static(path.join(__dirname, '..')));
 
+  // 健康检查（放在路由之前，不受 auth 中间件拦截）
+  app.get('/api/health', async (req, res) => {
+    try {
+      const db = getDb();
+      await db.healthCheck();
+      res.json({ status: 'ok', db: dbType });
+    } catch (e) {
+      res.status(500).json({ status: 'error', message: e.message });
+    }
+  });
+
   // API 路由（按需加载，确保数据库已初始化）
   app.use('/api/auth',      require('./routes/auth'));
   app.use('/api/users',     require('./routes/users'));
@@ -36,19 +47,8 @@ async function main() {
   app.use('/api/departments', require('./routes/departments'));
   app.use('/api',           require('./routes/misc'));
 
-  // 健康检查
-  app.get('/api/health', (req, res) => {
-    try {
-      const { getDb } = require('./db/database');
-      getDb().run('SELECT 1');
-      res.json({ status: 'ok', db: 'connected' });
-    } catch (e) {
-      res.status(500).json({ status: 'error', message: e.message });
-    }
-  });
-
   // 404 处理（API 未匹配 → 返回 404）
-  app.use((req, res) => {
+  app.use('/api', (req, res) => {
     res.status(404).json({ error: '接口不存在' });
   });
 
@@ -56,12 +56,13 @@ async function main() {
   app.listen(PORT, () => {
     console.log(`✅ 考试系统后端已启动: http://localhost:${PORT}`);
     console.log(`   前端页面:          http://localhost:${PORT}/`);
-    console.log(`   API 文档:          http://localhost:${PORT}/api/health`);
+    console.log(`   API 健康检查:      http://localhost:${PORT}/api/health`);
+    console.log(`   数据库:            ${dbType}`);
   });
 
   // 优雅关闭
-  process.on('SIGINT',  () => { closeDb(); process.exit(0); });
-  process.on('SIGTERM', () => { closeDb(); process.exit(0); });
+  process.on('SIGINT',  () => { closeDb().then(() => process.exit(0)); });
+  process.on('SIGTERM', () => { closeDb().then(() => process.exit(0)); });
 }
 
 main().catch(err => {

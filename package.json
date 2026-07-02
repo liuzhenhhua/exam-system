@@ -1,0 +1,13 @@
+{
+  "name": "exam-system",
+  "version": "2.1.0",
+  "description": "企业在线考试系统 - 完整部署（前端 + 后端）",
+  "scripts": {
+    "start": "node server/index.js",
+    "postinstall": "cd server && npm install",
+    "dev": "node server/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

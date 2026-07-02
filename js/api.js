@@ -1,10 +1,13 @@
 /**
  * API 客户端 — 所有后端请求封装
  * 自动根据 API_BASE 是否可用来决定走后端还是 localStorage
+ * 部署到 Railway 后，API_BASE 自动为 /api（相对路径）
  */
 window.ApiClient = (function () {
   'use strict';
 
+  // 部署到云端时，前端和后端同一域名，API_BASE = /api
+  // 本地开发时，前端在 localhost 打开，后端也在 localhost:3000
   const API_BASE = '/api';
   let _token = null;
   let _backendAvailable = null; // null=未检测, true/false
