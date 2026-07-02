@@ -132,6 +132,7 @@
                 <div class="settings-tabs">
                     <div class="settings-tab active" data-tab="admins" onclick="switchTab('admins')">管理员管理</div>
                     <div class="settings-tab" data-tab="departments" onclick="switchTab('departments')">部门管理</div>
+                    <div class="settings-tab" data-tab="positions" onclick="switchTab('positions')">岗位管理</div>
                     <div class="settings-tab" data-tab="modules" onclick="switchTab('modules')">功能模块</div>
                     <div class="settings-tab" data-tab="categories" onclick="switchTab('categories')">题目分类</div>
                     <div class="settings-tab" data-tab="exam" onclick="switchTab('exam')">考试设置</div>
@@ -206,6 +207,36 @@
                             • 一级部门：公司顶层组织架构，如「产品研发部」「市场营销部」<br>
                             • 二级部门：一级部门下的分组，如「前端组」「视频二部」<br>
                             • 三级部门：二级部门下的小组，可根据实际需要配置
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 岗位管理 -->
+                <div class="settings-panel" id="panel-positions">
+                    <div class="settings-card">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                            <div class="settings-card-title" style="margin-bottom:0;">岗位管理</div>
+                            <button class="btn-primary" onclick="showAddPositionModal()" style="font-size:13px;padding:8px 16px;">${ICONS.plus}新增岗位</button>
+                        </div>
+                        <p style="font-size:13px;color:#6b7280;margin-bottom:16px;">管理员工岗位，岗位与员工关联后可在数据看板中按岗位维度统计考试成绩。</p>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:60px;">ID</th>
+                                    <th>岗位名称</th>
+                                    <th style="width:100px;">排序</th>
+                                    <th style="width:140px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="position-tbody"></tbody>
+                        </table>
+                    </div>
+                    <div class="settings-card" style="background:#f0fdf4;">
+                        <div style="font-size:13px;color:#166534;line-height:1.8;">
+                            <strong>岗位管理说明：</strong><br>
+                            • 岗位用于关联员工，在「人员管理」中为员工选择岗位<br>
+                            • 在「数据看板」中可按岗位维度查看考试成绩统计<br>
+                            • 删除岗位后，已关联该岗位的员工岗位信息将清空，需重新设置
                         </div>
                     </div>
                 </div>
@@ -292,6 +323,7 @@
             });
             if (tab === 'admins') renderAdmins();
             if (tab === 'departments') renderDepartments();
+            if (tab === 'positions') renderPositions();
             if (tab === 'modules') renderModules();
             if (tab === 'categories') renderCategories();
             if (tab === 'exam') loadExamSettings();
@@ -884,6 +916,107 @@
                 ExamSystem.AdminManager.deleteAdmin(id);
                 Utils.toast('管理员已删除', 'success');
                 renderAdmins();
+            }, '删除确认');
+        }
+
+        // ========== 岗位管理 ==========
+        function renderPositions() {
+            const positions = ExamSystem.PositionManager.getPositions();
+            const tbody = document.getElementById('position-tbody');
+            if (positions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:#9ca3af;">暂无岗位，请点击右上角「新增岗位」</td></tr>';
+                return;
+            }
+            tbody.innerHTML = positions.map(p => `
+                <tr>
+                    <td style="color:#9ca3af;font-size:13px;">#${String(p.id).padStart(4, '0')}</td>
+                    <td style="font-weight:500;color:#1f2937;">${Utils.escapeHtml(p.name)}</td>
+                    <td style="font-size:13px;color:#6b7280;">${p.sortOrder || 0}</td>
+                    <td>
+                        <button class="action-btn action-edit" onclick="editPosition(${p.id})">${ICONS.edit}编辑</button>
+                        <button class="action-btn action-delete" onclick="deletePosition(${p.id})">${ICONS.trash}删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function showAddPositionModal() {
+            const positions = ExamSystem.PositionManager.getPositions();
+            const maxSort = positions.length > 0 ? Math.max(...positions.map(p => p.sortOrder || 0)) : 0;
+            Utils.showModal(`
+                <div style="padding:32px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:24px;">新增岗位</h3>
+                    <div class="form-section" style="margin-bottom:20px;">
+                        <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">岗位名称 <span style="color:#ef4444;">*</span></label>
+                        <input type="text" class="input-field" id="new-position-name" placeholder="如：测试工程师" style="height:42px;">
+                    </div>
+                    <div class="form-section" style="margin-bottom:28px;">
+                        <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">排序</label>
+                        <input type="number" class="input-field" id="new-position-sort" value="${maxSort + 1}" style="height:42px;">
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;gap:12px;">
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" onclick="saveNewPosition()">创建岗位</button>
+                    </div>
+                </div>
+            `);
+        }
+
+        function saveNewPosition() {
+            const name = document.getElementById('new-position-name').value.trim();
+            const sortOrder = parseInt(document.getElementById('new-position-sort').value) || 0;
+            if (!name) { Utils.toast('请输入岗位名称', 'error'); return; }
+            const positions = ExamSystem.PositionManager.getPositions();
+            if (positions.some(p => p.name === name)) { Utils.toast('岗位名称已存在', 'error'); return; }
+            ExamSystem.PositionManager.addPosition({ name, sortOrder });
+            Utils.closeModal(document.querySelector('.modal-overlay'));
+            Utils.toast('岗位创建成功', 'success');
+            renderPositions();
+        }
+
+        function editPosition(id) {
+            const positions = ExamSystem.PositionManager.getPositions();
+            const pos = positions.find(p => p.id === id);
+            if (!pos) return;
+            Utils.showModal(`
+                <div style="padding:32px;">
+                    <h3 style="font-size:18px;font-weight:600;margin-bottom:24px;">编辑岗位</h3>
+                    <div class="form-section" style="margin-bottom:20px;">
+                        <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">岗位名称 <span style="color:#ef4444;">*</span></label>
+                        <input type="text" class="input-field" id="edit-position-name" value="${Utils.escapeAttr(pos.name)}" style="height:42px;">
+                    </div>
+                    <div class="form-section" style="margin-bottom:28px;">
+                        <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">排序</label>
+                        <input type="number" class="input-field" id="edit-position-sort" value="${pos.sortOrder || 0}" style="height:42px;">
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;gap:12px;">
+                        <button class="btn-ghost" onclick="this.closest('.modal-overlay').remove()">取消</button>
+                        <button class="btn-primary" onclick="saveEditPosition(${id})">保存修改</button>
+                    </div>
+                </div>
+            `);
+        }
+
+        function saveEditPosition(id) {
+            const name = document.getElementById('edit-position-name').value.trim();
+            const sortOrder = parseInt(document.getElementById('edit-position-sort').value) || 0;
+            if (!name) { Utils.toast('请输入岗位名称', 'error'); return; }
+            const positions = ExamSystem.PositionManager.getPositions();
+            if (positions.some(p => p.name === name && p.id !== id)) { Utils.toast('岗位名称已存在', 'error'); return; }
+            ExamSystem.PositionManager.updatePosition(id, { name, sortOrder });
+            Utils.closeModal(document.querySelector('.modal-overlay'));
+            Utils.toast('岗位已更新', 'success');
+            renderPositions();
+        }
+
+        function deletePosition(id) {
+            const positions = ExamSystem.PositionManager.getPositions();
+            const pos = positions.find(p => p.id === id);
+            if (!pos) return;
+            Utils.confirm(`确定要删除岗位「${Utils.escapeHtml(pos.name)}」吗？已关联该岗位的员工岗位信息将清空。`, () => {
+                ExamSystem.PositionManager.deletePosition(id);
+                Utils.toast('岗位已删除', 'success');
+                renderPositions();
             }, '删除确认');
         }
 

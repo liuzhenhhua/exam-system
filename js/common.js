@@ -968,6 +968,73 @@ const DepartmentManager = {
     }
 };
 
+// ==================== 岗位管理 ====================
+
+const PositionManager = {
+    // 获取所有岗位
+    getPositions() {
+        const stored = Utils.getLocal('positions');
+        if (stored) return stored;
+        const defaults = [
+            { id: 1, name: '前端工程师', sortOrder: 1 },
+            { id: 2, name: '后端工程师', sortOrder: 2 },
+            { id: 3, name: '产品经理', sortOrder: 3 },
+            { id: 4, name: 'UI设计师', sortOrder: 4 },
+            { id: 5, name: '测试工程师', sortOrder: 5 },
+            { id: 6, name: '运营专员', sortOrder: 6 },
+            { id: 7, name: '市场专员', sortOrder: 7 },
+            { id: 8, name: '人事专员', sortOrder: 8 },
+            { id: 9, name: '财务专员', sortOrder: 9 },
+            { id: 10, name: '项目经理', sortOrder: 10 }
+        ];
+        Utils.saveLocal('positions', defaults);
+        return defaults;
+    },
+
+    // 获取岗位名称
+    getPositionName(name) {
+        return name || '';
+    },
+
+    // 生成岗位下拉选择器 HTML
+    positionSelectHtml(selectedName = '', id = 'position-select') {
+        const positions = this.getPositions();
+        return `<select class="input-field" id="${Utils.escapeAttr(id)}" style="height:42px;">
+            <option value="">请选择岗位</option>
+            ${positions.map(p => `<option value="${Utils.escapeAttr(p.name)}" ${p.name === selectedName ? 'selected' : ''}>${Utils.escapeHtml(p.name)}</option>`).join('')}
+        </select>`;
+    },
+
+    // 新增岗位
+    addPosition(pos) {
+        const positions = this.getPositions();
+        const maxId = positions.length > 0 ? Math.max(...positions.map(p => p.id)) : 0;
+        pos.id = maxId + 1;
+        positions.push(pos);
+        Utils.saveLocal('positions', positions);
+        return pos;
+    },
+
+    // 更新岗位
+    updatePosition(id, updates) {
+        const positions = this.getPositions();
+        const idx = positions.findIndex(p => p.id === id);
+        if (idx !== -1) {
+            positions[idx] = { ...positions[idx], ...updates };
+            Utils.saveLocal('positions', positions);
+            return positions[idx];
+        }
+        return null;
+    },
+
+    // 删除岗位
+    deletePosition(id) {
+        const positions = this.getPositions();
+        Utils.saveLocal('positions', positions.filter(p => p.id !== id));
+        return { success: true };
+    }
+};
+
 // ==================== 账号管理 ====================
 
 const AccountManager = {
@@ -2531,6 +2598,7 @@ ExamSystem.MOCK_DATA = MOCK_DATA;
 ExamSystem.Utils = Utils;
 ExamSystem.ProjectManager = ProjectManager;
 ExamSystem.DepartmentManager = DepartmentManager;
+ExamSystem.PositionManager = PositionManager;
 ExamSystem.AccountManager = AccountManager;
 ExamSystem.QuestionBankManager = QuestionBankManager;
 ExamSystem.ExamManager = ExamManager;

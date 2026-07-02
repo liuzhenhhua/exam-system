@@ -40,6 +40,12 @@ CREATE TABLE IF NOT EXISTS departments (
   FOREIGN KEY (parent_id) REFERENCES departments(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS positions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  sort_order INTEGER DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE
@@ -189,6 +195,12 @@ CREATE TABLE IF NOT EXISTS departments (
   name VARCHAR(100) NOT NULL,
   level INTEGER NOT NULL DEFAULT 1,
   parent_id INTEGER REFERENCES departments(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS positions (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE,
+  sort_order INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS categories (
@@ -344,6 +356,14 @@ async function seedData(db, dbType) {
     await db.run('INSERT INTO departments (name, level, parent_id) VALUES (?, ?, ?)', '视频二部', 2, 2);
   }
 
+  const posCount = await db.get('SELECT COUNT(*) as count FROM positions');
+  if (Number(posCount.count) === 0) {
+    const defaultPositions = ['前端工程师','后端工程师','产品经理','UI设计师','测试工程师','运营专员','市场专员','人事专员','财务专员','项目经理'];
+    for (let i = 0; i < defaultPositions.length; i++) {
+      await db.run('INSERT INTO positions (name, sort_order) VALUES (?, ?)', defaultPositions[i], i + 1);
+    }
+  }
+
   const settingsCount = await db.get('SELECT COUNT(*) as count FROM settings');
   if (Number(settingsCount.count) === 0) {
     const defaults = {
@@ -386,6 +406,15 @@ function seedDataSync(db) {
     db.prepare('INSERT INTO departments (name, level, parent_id) VALUES (?, ?, ?)').run('后端组', 2, 1);
     db.prepare('INSERT INTO departments (name, level, parent_id) VALUES (?, ?, ?)').run('产品组', 2, 1);
     db.prepare('INSERT INTO departments (name, level, parent_id) VALUES (?, ?, ?)').run('视频二部', 2, 2);
+  }
+
+  const posCount = db.prepare('SELECT COUNT(*) as count FROM positions').get();
+  if (posCount.count === 0) {
+    const defaultPositions = ['前端工程师','后端工程师','产品经理','UI设计师','测试工程师','运营专员','市场专员','人事专员','财务专员','项目经理'];
+    const insertPos = db.prepare('INSERT INTO positions (name, sort_order) VALUES (?, ?)');
+    for (let i = 0; i < defaultPositions.length; i++) {
+      insertPos.run(defaultPositions[i], i + 1);
+    }
   }
 
   const settingsCount = db.prepare('SELECT COUNT(*) as count FROM settings').get();

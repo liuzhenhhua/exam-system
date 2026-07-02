@@ -169,6 +169,60 @@ router.delete('/categories/:id', adminOnly, async (req, res) => {
   }
 });
 
+// ==================== 岗位管理 ====================
+
+router.get('/positions', async (req, res) => {
+  try {
+    const db = getDb();
+    const positions = await db.all('SELECT * FROM positions ORDER BY sort_order, id');
+    res.json({ positions });
+  } catch (err) {
+    console.error('[positions/list] 错误:', err);
+    res.status(500).json({ error: '获取岗位列表失败' });
+  }
+});
+
+router.post('/positions', adminOnly, async (req, res) => {
+  try {
+    const db = getDb();
+    const { name, sort_order } = req.body;
+    if (!name) return res.status(400).json({ error: '岗位名称不能为空' });
+    const existing = await db.get('SELECT id FROM positions WHERE name = ?', name);
+    if (existing) return res.status(400).json({ error: '岗位名称已存在' });
+    const result = await db.run('INSERT INTO positions (name, sort_order) VALUES (?, ?)', name, sort_order || 0);
+    res.json({ id: result.lastInsertRowid, name });
+  } catch (err) {
+    console.error('[positions/create] 错误:', err);
+    res.status(500).json({ error: '创建岗位失败' });
+  }
+});
+
+router.put('/positions/:id', adminOnly, async (req, res) => {
+  try {
+    const db = getDb();
+    const { name, sort_order } = req.body;
+    const fields = []; const params = [];
+    if (name !== undefined) { fields.push('name = ?'); params.push(name); }
+    if (sort_order !== undefined) { fields.push('sort_order = ?'); params.push(sort_order); }
+    if (fields.length > 0) { params.push(req.params.id); await db.run(`UPDATE positions SET ${fields.join(', ')} WHERE id = ?`, ...params); }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[positions/update] 错误:', err);
+    res.status(500).json({ error: '更新岗位失败' });
+  }
+});
+
+router.delete('/positions/:id', adminOnly, async (req, res) => {
+  try {
+    const db = getDb();
+    await db.run('DELETE FROM positions WHERE id = ?', req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[positions/delete] 错误:', err);
+    res.status(500).json({ error: '删除岗位失败' });
+  }
+});
+
 // ==================== 系统设置 ====================
 
 router.get('/settings', async (req, res) => {
@@ -271,6 +325,56 @@ router.get('/stats/dept', adminOnly, async (req, res) => {
   } catch (err) {
     console.error('[stats/dept] 错误:', err);
     res.status(500).json({ error: '获取部门统计失败' });
+  }
+});
+
+// 按岗位统计
+router.get('/stats/position', adminOnly, async (req, res) => {
+  try {
+    const db = getDb();
+    const positions = await db.all('SELECT * FROM positions ORDER BY sort_order, id');
+    const results = await db.all('SELECT * FROM results WHERE review_completed = 1');
+    const users = await db.all('SELECT * FROM users ORDER BY id');
+
+    const posStats = positions.map(p => {
+      const posUsers = users.filter(u => u.position === p.name);
+      const posResults = results.filter(r => posUsers.some(u => u.username === r.username));
+      const avgScore = posResults.length > 0
+        ? (posResults.reduce((a, b) => a + b.score, 0) / posResults.length).toFixed(1)
+        : 0;
+      const passRate = posResults.length > 0
+        ? Math.round((posResults.filter(r => r.passed).length / posResults.length) * 100)
+        : 0;
+      return {
+        id: p.id, name: p.name, sort_order: p.sort_order,
+        userCount: posUsers.length,
+        examCount: posResults.length,
+        avgScore, passRate
+      };
+    });
+
+    // 统计未设置岗位的员工
+    const noPosUsers = users.filter(u => !u.position || u.position === '');
+    const noPosResults = results.filter(r => noPosUsers.some(u => u.username === r.username));
+    const noPosAvg = noPosResults.length > 0
+      ? (noPosResults.reduce((a, b) => a + b.score, 0) / noPosResults.length).toFixed(1)
+      : 0;
+    const noPosPassRate = noPosResults.length > 0
+      ? Math.round((noPosResults.filter(r => r.passed).length / noPosResults.length) * 100)
+      : 0;
+
+    res.json({
+      positions: posStats,
+      unassigned: {
+        userCount: noPosUsers.length,
+        examCount: noPosResults.length,
+        avgScore: noPosAvg,
+        passRate: noPosPassRate
+      }
+    });
+  } catch (err) {
+    console.error('[stats/position] 错误:', err);
+    res.status(500).json({ error: '获取岗位统计失败' });
   }
 });
 

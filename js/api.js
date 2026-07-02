@@ -169,6 +169,12 @@ window.ApiClient = (function () {
     updateDepartment(id, data) { return request('PUT', `/departments/${id}`, data); },
     deleteDepartment(id) { return request('DELETE', `/departments/${id}`); },
 
+    // 岗位
+    getPositions() { return request('GET', '/positions'); },
+    addPosition(data) { return request('POST', '/positions', data); },
+    updatePosition(id, data) { return request('PUT', `/positions/${id}`, data); },
+    deletePosition(id) { return request('DELETE', `/positions/${id}`); },
+
     // 管理员
     getAdmins() { return request('GET', '/admins'); },
     addAdmin(data) { return request('POST', '/admins', data); },
@@ -192,6 +198,7 @@ window.ApiClient = (function () {
 
     // 统计
     getStats() { return request('GET', '/stats'); },
-    getDeptStats() { return request('GET', '/stats/dept'); }
+    getDeptStats() { return request('GET', '/stats/dept'); },
+    getPositionStats() { return request('GET', '/stats/position'); }
   };
 })();

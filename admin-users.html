@@ -195,6 +195,7 @@
                                 <th>姓名</th>
                                 <th style="width:100px;">工号</th>
                                 <th style="width:120px;">部门</th>
+                                <th style="width:100px;">岗位</th>
                                 <th style="width:180px;">参与项目</th>
                                 <th style="width:80px;">状态</th>
                                 <th style="width:100px;">创建日期</th>
@@ -223,14 +224,33 @@
         (function(){var u=Utils.getLocal('current_user');if(u&&u.real_name){document.getElementById('topbar-name').textContent=u.real_name;document.getElementById('topbar-avatar').textContent=u.real_name.charAt(0);var r=u.department?u.department+' · ':'',s=u.role==='admin'?'管理员':(u.role||'');document.getElementById('topbar-role').textContent=r+s;}})();
     </script>
     <script>
-        // 初始化：确保账号数据存在
-        ExamSystem.AccountManager.getExamineeAccounts();
-
-        // 填充部门级联筛选
-        function populateDeptFilter() {
-            const container = document.getElementById('filter-dept-cascader');
-            container.innerHTML = ExamSystem.DepartmentManager.departmentCascaderHtml('', 'filter-dept');
-            setupDeptCascader('filter-dept', renderAccounts);
+        // 初始化：从后端同步数据后渲染
+        async function initPage() {
+            if (await ApiClient.useBackend()) {
+                try {
+                    const data = await ApiClient.getUsers();
+                    if (data.users) {
+                        // 字段名转换：后端 snake_case → 前端 camelCase
+                        const users = data.users.map(u => ({
+                            ...u,
+                            departmentId: u.department_id || u.departmentId || null,
+                            real_name: u.real_name || u.realName || '',
+                            project_ids: u.project_ids || [],
+                        }));
+                        // 确保 department 文本字段从 departmentId 自动生成
+                        users.forEach(u => {
+                            if ((!u.department || u.department === '') && u.departmentId) {
+                                u.department = ExamSystem.DepartmentManager.getFullPath(u.departmentId) || '';
+                            }
+                        });
+                        Utils.saveLocal('examinee_accounts', users);
+                    }
+                } catch (e) { console.warn('人员数据同步失败:', e.message); }
+            }
+            populateDeptFilter();
+            populateProjectFilterUsers();
+            updateStats();
+            renderAccounts();
         }
 
         // 部门级联事件绑定
@@ -337,7 +357,7 @@
 
             const tbody = document.getElementById('account-tbody');
             if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#9ca3af;">暂无符合条件的账号</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:40px;color:#9ca3af;">暂无符合条件的账号</td></tr>';
             } else {
                 let html = '';
                 filtered.forEach(a => {
@@ -358,6 +378,7 @@
                             <td style="font-weight:500;color:#1f2937;">${Utils.escapeHtml(a.real_name)}</td>
                             <td style="font-size:13px;color:#6b7280;font-family:monospace;">${Utils.escapeHtml(a.username)}</td>
                             <td style="font-size:13px;color:#6b7280;">${Utils.escapeHtml(a.department)}</td>
+                            <td style="font-size:13px;color:#6b7280;">${Utils.escapeHtml(a.position || '-')}</td>
                             <td>${projectHtml}</td>
                             <td><span class="badge ${statusBadge}">${statusText}</span></td>
                             <td style="font-size:13px;color:#9ca3af;">${a.created || '-'}</td>
@@ -401,7 +422,7 @@
                         </div>
                         <div style="flex:1;">
                             <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">岗位</label>
-                            <input type="text" class="input-field" id="new-position" placeholder="如：前端工程师" style="height:42px;">
+                            ${ExamSystem.PositionManager.positionSelectHtml('', 'new-position')}
                         </div>
                     </div>
 
@@ -423,6 +444,7 @@
                     </div>
                 </div>
             `);
+            setupDeptCascader('new-dept', null);
         }
 
         function saveNewAccount() {
@@ -442,7 +464,10 @@
                 return;
             }
 
-            ExamSystem.AccountManager.addAccount({
+            const btn = document.getElementById('save-account-btn');
+            if (btn) { btn.disabled = true; btn.textContent = '创建中...'; }
+
+            Promise.resolve(ExamSystem.AccountManager.addAccount({
                 username: username,
                 password: password,
                 real_name: realName,
@@ -450,12 +475,15 @@
                 position: position,
                 status: 'active',
                 project_ids: projectIds
+            })).then(() => {
+                Utils.closeModal(document.querySelector('.modal-overlay'));
+                Utils.toast(`账号 ${username} 创建成功！`, 'success');
+                updateStats();
+                renderAccounts();
+            }).catch(() => {
+                if (btn) { btn.disabled = false; btn.textContent = '创建账号'; }
+                Utils.toast('创建账号失败，请重试', 'error');
             });
-
-            Utils.closeModal(document.querySelector('.modal-overlay'));
-            Utils.toast(`账号 ${username} 创建成功！`, 'success');
-            updateStats();
-            renderAccounts();
         }
 
         // 编辑账号
@@ -487,7 +515,7 @@
                         </div>
                         <div style="flex:1;">
                             <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">岗位</label>
-                            <input type="text" class="input-field" id="edit-position" value="${Utils.escapeAttr(account.position || '')}" style="height:42px;">
+                            ${ExamSystem.PositionManager.positionSelectHtml(account.position || '', 'edit-position')}
                         </div>
                     </div>
 
@@ -502,6 +530,7 @@
                     <div class="form-section" style="margin-bottom:28px;">
                         <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">密码</label>
                         <input type="password" class="input-field" id="edit-password" value="" placeholder="留空则不修改密码" style="height:42px;">
+                        <div style="font-size:12px;color:#9ca3af;margin-top:6px;">如需修改密码请输入新密码，留空则保持原密码不变</div>
                     </div>
 
                     <div style="display:flex;justify-content:flex-end;gap:12px;">
@@ -510,6 +539,9 @@
                     </div>
                 </div>
             `);
+
+            // 为编辑弹窗的部门级联器添加事件绑定
+            setupDeptCascader('edit-dept', null);
         }
 
         function saveEditAccount(id) {
@@ -734,7 +766,7 @@
                         </div>
                         <div style="flex:1;">
                             <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">岗位</label>
-                            <input type="text" class="input-field" id="gen-position" placeholder="如：待分配" style="height:42px;">
+                            ${ExamSystem.PositionManager.positionSelectHtml('', 'gen-position')}
                         </div>
                     </div>
 
@@ -759,6 +791,8 @@
                     </div>
                 </div>
             `);
+
+            setupDeptCascader('gen-dept', null);
 
             // 更新预览
             function updatePreview() {
@@ -818,10 +852,7 @@
         }
 
         // 初始化
-        populateDeptFilter();
-        populateProjectFilterUsers();
-        updateStats();
-        renderAccounts();
+        initPage();
     </script>
 </body>
 </html>

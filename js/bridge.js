@@ -73,7 +73,14 @@
         if (available) {
           ApiClient.getUsers().then(data => {
             if (data.users) {
-              Utils.saveLocal('examinee_accounts', data.users);
+              // 字段名转换：后端 snake_case → 前端 camelCase
+              const users = data.users.map(u => ({
+                ...u,
+                departmentId: u.department_id || u.departmentId || null,
+                real_name: u.real_name || u.realName || '',
+                project_ids: u.project_ids || [],
+              }));
+              Utils.saveLocal('examinee_accounts', users);
             }
           }).catch(() => {});
         }
@@ -85,7 +92,17 @@
     AccountManager.addAccount = async function (account) {
       if (await ApiClient.useBackend()) {
         try {
-          const result = await ApiClient.addUser(account);
+          // 字段名转换：前端 camelCase → 后端 snake_case
+          const result = await ApiClient.addUser({
+            username: account.username,
+            password: account.password,
+            real_name: account.real_name,
+            department_id: account.departmentId || null,
+            department: account.department || '',
+            position: account.position || '',
+            status: account.status,
+            project_ids: account.project_ids || []
+          });
           account.id = result.id;
         } catch (e) { console.warn('[迁移层] addAccount API 失败:', e.message); }
       }
@@ -95,7 +112,13 @@
     const origUpdateAccount = AccountManager.updateAccount;
     AccountManager.updateAccount = async function (id, updates) {
       if (await ApiClient.useBackend()) {
-        ApiClient.updateUser(id, updates).catch(() => {});
+        // 字段名转换：camelCase → snake_case
+        const apiUpdates = { ...updates };
+        if (updates.departmentId !== undefined) {
+          apiUpdates.department_id = updates.departmentId;
+          delete apiUpdates.departmentId;
+        }
+        ApiClient.updateUser(id, apiUpdates).catch(() => {});
       }
       return origUpdateAccount.call(this, id, updates);
     };
@@ -111,7 +134,19 @@
     const origBatchAdd = AccountManager.batchAddAccounts;
     AccountManager.batchAddAccounts = async function (accountList) {
       if (await ApiClient.useBackend() && accountList.length > 0) {
-        ApiClient.batchAddUsers(accountList).catch(() => {});
+        // 字段名转换：camelCase → snake_case
+        const apiUsers = accountList.map(a => ({
+          username: a.username,
+          password: a.password,
+          real_name: a.real_name,
+          department_id: a.departmentId || null,
+          department: a.department || '',
+          position: a.position || '',
+          status: a.status,
+          project_ids: a.project_ids || [],
+          created: a.created
+        }));
+        ApiClient.batchAddUsers(apiUsers).catch(() => {});
       }
       return origBatchAdd.call(this, accountList);
     };
@@ -193,6 +228,19 @@
         }
       });
       return stored || [];
+    };
+
+    const origBatchAddQuestions = QuestionBankManager.batchAddQuestions;
+    QuestionBankManager.batchAddQuestions = async function (questions, scope, projectId) {
+      if (await ApiClient.useBackend()) {
+        try {
+          await ApiClient.batchAddQuestions(questions, scope, projectId);
+          // 从后端重新拉取最新题库
+          const data = await ApiClient.getQuestions({ pageSize: 2000 });
+          if (data.questions) Utils.saveLocal('question_bank', data.questions);
+        } catch (e) { console.warn('[迁移层] batchAddQuestions API 失败:', e.message); }
+      }
+      return origBatchAddQuestions.call(this, questions, scope, projectId);
     };
 
     // --- ResultManager ---
@@ -308,6 +356,60 @@
       });
       return stored || [];
     };
+
+    // --- PositionManager（岗位数据同步）---
+    if (typeof PositionManager !== 'undefined') {
+      const origGetPositions = PositionManager.getPositions;
+      PositionManager.getPositions = function () {
+        const stored = Utils.getLocal('positions');
+        ApiClient.useBackend().then(available => {
+          if (available) {
+            ApiClient.getPositions().then(data => {
+              if (data.positions) {
+                // 转换 sort_order → sortOrder 以兼容前端
+                const positions = data.positions.map(p => ({
+                  id: p.id,
+                  name: p.name,
+                  sortOrder: p.sort_order !== undefined ? p.sort_order : (p.sortOrder || 0)
+                }));
+                Utils.saveLocal('positions', positions);
+              }
+            }).catch(() => {});
+          }
+        });
+        return stored || [];
+      };
+
+      const origAddPosition = PositionManager.addPosition;
+      PositionManager.addPosition = async function (pos) {
+        if (await ApiClient.useBackend()) {
+          try {
+            const result = await ApiClient.addPosition({ name: pos.name, sort_order: pos.sortOrder || 0 });
+            pos.id = result.id;
+          } catch (e) { console.warn('[迁移层] addPosition API 失败:', e.message); }
+        }
+        return origAddPosition.call(this, pos);
+      };
+
+      const origUpdatePosition = PositionManager.updatePosition;
+      PositionManager.updatePosition = async function (id, updates) {
+        if (await ApiClient.useBackend()) {
+          const apiUpdates = {};
+          if (updates.name !== undefined) apiUpdates.name = updates.name;
+          if (updates.sortOrder !== undefined) apiUpdates.sort_order = updates.sortOrder;
+          ApiClient.updatePosition(id, apiUpdates).catch(() => {});
+        }
+        return origUpdatePosition.call(this, id, updates);
+      };
+
+      const origDeletePosition = PositionManager.deletePosition;
+      PositionManager.deletePosition = async function (id) {
+        if (await ApiClient.useBackend()) {
+          ApiClient.deletePosition(id).catch(() => {});
+        }
+        return origDeletePosition.call(this, id);
+      };
+    }
   }
 
   // DOM 加载后立即初始化

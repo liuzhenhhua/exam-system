@@ -553,6 +553,23 @@
                     </div>
                 </div>
 
+                <!-- 岗位成绩概览 -->
+                <div class="dept-stats-section">
+                    <div class="dept-stats-header">
+                        <div class="dept-stats-title">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
+                            岗位成绩概览
+                        </div>
+                    </div>
+                    <div class="dept-stats-card">
+                        <div class="dept-summary-cards" id="pos-summary"></div>
+                        <div style="border-top:1px solid #f3f4f6;padding-top:16px;">
+                            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:12px;">岗位排名</div>
+                            <div id="pos-ranking"></div>
+                        </div>
+                    </div>
+                </div>
+
 
                 <div class="recent-section">
                     <div class="panel-card">
@@ -841,6 +858,113 @@
         renderExamNotices();
         renderRecentExams();
         renderDeptStats();
+        renderPositionStats();
+
+        // ========== 岗位成绩概览 ==========
+        function renderPositionStats() {
+            const positions = ExamSystem.PositionManager.getPositions();
+            const accounts = ExamSystem.AccountManager.getExamineeAccounts();
+            const allResults = ExamSystem.ResultManager.getResults();
+
+            // 按岗位分组
+            const posAccounts = {}; // positionName -> [accounts]
+            const noPosAccounts = [];
+            accounts.forEach(a => {
+                if (a.position && a.position !== '') {
+                    if (!posAccounts[a.position]) posAccounts[a.position] = [];
+                    posAccounts[a.position].push(a);
+                } else {
+                    noPosAccounts.push(a);
+                }
+            });
+
+            // 为每个岗位计算统计
+            function calcPosStats(posName, accts) {
+                if (!accts || accts.length === 0) {
+                    return { name: posName || '未设置岗位', accountCount: 0, participantCount: 0, reviewedCount: 0, avgScore: 0, passRate: 0 };
+                }
+                const usernames = new Set(accts.map(a => a.username));
+                const posResults = allResults.filter(r => usernames.has(r.userId));
+                const userIds = new Set(posResults.map(r => r.userId));
+                const reviewedResults = posResults.filter(r => r.reviewCompleted !== false);
+                const scores = reviewedResults.map(r => r.score || 0);
+                const passed = reviewedResults.filter(r => r.passed === true);
+                return {
+                    name: posName || '未设置岗位',
+                    accountCount: accts.length,
+                    participantCount: userIds.size,
+                    reviewedCount: reviewedResults.length,
+                    avgScore: reviewedResults.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length) : 0,
+                    passRate: reviewedResults.length > 0 ? Math.round((passed.length / reviewedResults.length) * 100) : 0
+                };
+            }
+
+            let displayPositions = [];
+            positions.forEach(p => {
+                displayPositions.push(calcPosStats(p.name, posAccounts[p.name] || []));
+            });
+            if (noPosAccounts.length > 0) {
+                displayPositions.push(calcPosStats('未设置岗位', noPosAccounts));
+            }
+
+            // 按平均分排序
+            displayPositions.sort((a, b) => b.avgScore - a.avgScore);
+
+            // 汇总
+            const totalAccounts = displayPositions.reduce((s, d) => s + d.accountCount, 0);
+            const totalParticipants = displayPositions.reduce((s, d) => s + d.participantCount, 0);
+            const totalReviewed = displayPositions.reduce((s, d) => s + d.reviewedCount, 0);
+            const totalAvg = displayPositions.length > 0 ? (displayPositions.reduce((s, d) => s + d.avgScore, 0) / displayPositions.length) : 0;
+
+            // 渲染汇总卡片
+            document.getElementById('pos-summary').innerHTML = `
+                <div class="dept-summary-item">
+                    <div class="dept-summary-label">岗位总数</div>
+                    <div class="dept-summary-value">${positions.length}</div>
+                </div>
+                <div class="dept-summary-item">
+                    <div class="dept-summary-label">岗位总人数</div>
+                    <div class="dept-summary-value">${totalAccounts}</div>
+                </div>
+                <div class="dept-summary-item">
+                    <div class="dept-summary-label">参与考试</div>
+                    <div class="dept-summary-value">${totalParticipants}</div>
+                </div>
+                <div class="dept-summary-item">
+                    <div class="dept-summary-label">整体均分</div>
+                    <div class="dept-summary-value">${displayPositions.length > 0 ? totalAvg.toFixed(1) : '—'}</div>
+                </div>
+            `;
+
+            // 渲染排名
+            const rankingContainer = document.getElementById('pos-ranking');
+            if (displayPositions.length === 0) {
+                rankingContainer.innerHTML = '<div style="text-align:center;padding:24px;color:#9ca3af;font-size:13px;">暂无岗位数据，请先在系统设置中配置岗位</div>';
+                return;
+            }
+
+            let rankHtml = '';
+            displayPositions.forEach((d, idx) => {
+                const rankClass = idx === 0 ? 'top1' : idx === 1 ? 'top2' : idx === 2 ? 'top3' : 'normal';
+                const rankNum = idx + 1;
+                const passColor = d.passRate >= 80 ? '#16a34a' : d.passRate >= 60 ? '#d97706' : '#ef4444';
+                rankHtml += `
+                    <div class="dept-stat-bar">
+                        <div class="dept-stat-rank ${rankClass}">${rankNum}</div>
+                        <div class="dept-stat-info">
+                            <div class="dept-stat-name">${Utils.escapeHtml(d.name)}</div>
+                            <div class="dept-stat-meta">${d.participantCount}/${d.accountCount} 人参与 · 已阅卷 ${d.reviewedCount} 份</div>
+                        </div>
+                        <div class="dept-stat-pbar">
+                            <div class="dept-stat-pbar-fill" style="width:${d.passRate}%"></div>
+                        </div>
+                        <div class="dept-stat-score" style="font-size:13px;font-weight:500;">${d.reviewedCount > 0 ? d.avgScore.toFixed(1) : '—'} 分</div>
+                        <div class="dept-stat-pass" style="width:56px;text-align:right;color:${passColor};">${d.reviewedCount > 0 ? d.passRate + '%' : '—'}</div>
+                    </div>
+                `;
+            });
+            rankingContainer.innerHTML = rankHtml;
+        }
     </script>
 </body>
 </html>

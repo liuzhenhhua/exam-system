@@ -1288,7 +1288,7 @@
             wrap.style.display = el.dataset.scope === 'project' ? 'block' : 'none';
         }
 
-        function confirmImport() {
+        async function confirmImport() {
             const overlay = document.querySelector('.modal-overlay');
             const scope = overlay.querySelector('input[name="importscope"]:checked').value;
             const projectId = scope === 'project' ? parseInt(overlay.querySelector('#import-project').value) : null;
@@ -1301,12 +1301,18 @@
             const btn = document.getElementById('confirm-import-btn');
             btn.innerHTML = '<span class="spinner"></span> 导入中...';
             btn.disabled = true;
-            setTimeout(() => {
-                const count = ExamSystem.QuestionBankManager.batchAddQuestions(parsedQuestions, scope, projectId);
+
+            try {
+                const count = await ExamSystem.QuestionBankManager.batchAddQuestions(parsedQuestions, scope, projectId);
                 Utils.closeModal(overlay);
                 Utils.toast(`成功导入 ${count} 道题目到${scope === 'public' ? '公共题库' : Utils.escapeHtml(ExamSystem.ProjectManager.projectName(projectId))}！`, 'success');
+                // 重新渲染题目列表
                 renderQuestions();
-            }, 800);
+            } catch (err) {
+                Utils.toast('导入失败：' + err.message, 'error');
+                btn.disabled = false;
+                btn.innerHTML = '确认导入';
+            }
         }
 
         // ========== 批量操作 ==========
@@ -1605,8 +1611,21 @@
             }, '删除项目');
         }
 
-        renderQuestions();
-        renderProjectCards();
+        // 初始化：从后端同步数据后渲染
+        async function initPage() {
+            if (await ApiClient.useBackend()) {
+                try {
+                    const data = await ApiClient.getQuestions({ pageSize: 2000 });
+                    if (data.questions) {
+                        Utils.saveLocal('question_bank', data.questions);
+                    }
+                } catch (e) { console.warn('题库数据同步失败:', e.message); }
+            }
+            renderQuestions();
+            renderProjectCards();
+        }
+
+        initPage();
     </script>
 </body>
 </html>
