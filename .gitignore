@@ -13,6 +13,10 @@ Thumbs.db
 # Node modules (if any)
 node_modules/
 
+# Server data (database files)
+server/data/
+server/node_modules/
+
 # Logs
 *.log
 

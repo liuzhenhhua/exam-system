@@ -211,6 +211,8 @@
     </div>
 
     <script src="js/common.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/bridge.js"></script>
     <script>
         (function(){var u=Utils.getLocal('current_user');if(u&&u.real_name){document.getElementById('topbar-name').textContent=u.real_name;document.getElementById('topbar-avatar').textContent=u.real_name.charAt(0);var r=u.department?u.department+' · ':'',s=u.role==='admin'?'管理员':(u.role||'');document.getElementById('topbar-role').textContent=r+s;}})();
     </script>
