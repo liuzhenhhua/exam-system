@@ -123,7 +123,7 @@
         }
         try { await ApiClient.updateUser(id, apiUpdates); }
         catch (e) { console.warn('[迁移层] updateUser API 失败:', e.message); }
-        setTimeout(() => { _mutationLock = false; }, 2000);
+        setTimeout(() => { _mutationLock = false; }, 5000);
       }
       return origUpdateAccount.call(this, id, updates);
     };
@@ -134,7 +134,7 @@
         _mutationLock = true;
         try { await ApiClient.deleteUser(id); }
         catch (e) { console.warn('[迁移层] deleteUser API 失败:', e.message); }
-        setTimeout(() => { _mutationLock = false; }, 2000);
+        setTimeout(() => { _mutationLock = false; }, 5000);
       }
       return origDeleteAccount.call(this, id);
     };
@@ -157,7 +157,7 @@
         }));
         try { await ApiClient.batchAddUsers(apiUsers); }
         catch (e) { console.warn('[迁移层] batchAddUsers API 失败:', e.message); }
-        setTimeout(() => { _mutationLock = false; }, 2000);
+        setTimeout(() => { _mutationLock = false; }, 5000);
       }
       return origBatchAdd.call(this, accountList);
     };
@@ -278,18 +278,24 @@
         manualReviewCount: r.manual_review_count || 0,
         reviewCompleted: r.review_completed === undefined ? (r.manual_review_count === 0) : !!r.review_completed,
         submittedAt: r.submitted_at || '',
-        timeSpent: r.time_spent || ''
+        timeSpent: r.time_spent || '',
+        examTitle: r.exam_title || r.examTitle || '',
+        totalQuestions: r.question_count || r.totalQuestions || 0,
+        correctRate: r.correct_rate || r.correctRate || 0,
+        examScope: r.exam_scope || r.examScope || '',
+        examProjectId: r.exam_project_id || r.examProjectId || null,
+        results: r.results || []
       };
       return mapped;
     }
 
-    // 突变锁：防止后台同步覆盖刚执行的增删改
+    // 突变锁：防止后台同步覆盖刚执行的增删改（5秒以应对50人并发慢响应）
     let _mutationLock = false;
     function withMutationLock(fn) {
       return async function (...args) {
         _mutationLock = true;
         try { return await fn.apply(this, args); }
-        finally { setTimeout(() => { _mutationLock = false; }, 2000); }
+        finally { setTimeout(() => { _mutationLock = false; }, 5000); }
       };
     }
 
@@ -301,10 +307,46 @@
           if (available && !_mutationLock) {
             ApiClient.getResults({}).then(data => {
               if (data.results && !_mutationLock) {
-                const results = data.results.map(mapBackendResult);
-                Utils.saveLocal('exam_results', results);
+                // 合并策略：保留本地已有但后端不返回的详情字段（results数组、examTitle等）
+                const currentResults = Utils.getLocal('exam_results') || [];
+                const backendResults = data.results.map(mapBackendResult);
+                const merged = backendResults.map(br => {
+                  const local = currentResults.find(cr => String(cr.id) === String(br.id));
+                  if (local && local.results && local.results.length) {
+                    return { ...br, results: local.results, examTitle: local.examTitle || br.examTitle, totalQuestions: local.totalQuestions || br.totalQuestions };
+                  }
+                  return br;
+                });
+                Utils.saveLocal('exam_results', merged);
+                // 异步补充缺失的详情数据
+                for (let i = 0; i < merged.length; i++) {
+                  const r = merged[i];
+                  if (!r.results || !r.results.length) {
+                    ApiClient.getResultDetails(r.id).then(detailData => {
+                      if (detailData && detailData.details) {
+                        const stored2 = Utils.getLocal('exam_results') || [];
+                        const idx2 = stored2.findIndex(s => String(s.id) === String(r.id));
+                        if (idx2 >= 0) {
+                          stored2[idx2].results = detailData.details.map(d => ({
+                            questionId: d.question_id,
+                            userAnswer: d.user_answer,
+                            isCorrect: !!d.is_correct,
+                            manualReview: !!d.manual_review,
+                            reviewScore: d.review_score,
+                            reviewComment: d.review_comment || '',
+                            maxScore: d.max_score,
+                            score: d.score,
+                            question: { content: d.content, type: d.type, answer: '', image: null, analysis: '' }
+                          }));
+                          stored2[idx2].totalQuestions = detailData.details.length;
+                          Utils.saveLocal('exam_results', stored2);
+                        }
+                      }
+                    }).catch(() => {});
+                  }
+                }
               }
-            }).catch(() => {});
+            }).catch(e => console.error('[迁移层] getResults 同步失败:', e.message));
           }
         });
       }
@@ -329,9 +371,22 @@
         } catch (e) { console.warn('[迁移层] submitResult API 失败:', e.message); }
         // 不再从后端重新拉取全部结果（会覆盖本地 examTitle/results 等字段）
         // 而是让 origAddResult 把 resultData 存入 localStorage
-        setTimeout(() => { _mutationLock = false; }, 2000);
+        setTimeout(() => { _mutationLock = false; }, 5000);
       }
       return origAddResult.call(this, resultData);
+    };
+
+    // 阅卷打分补丁：同步到后端
+    const origScoreQuestion = ResultManager.scoreQuestion;
+    ResultManager.scoreQuestion = async function (resultId, questionIndex, score, comment) {
+      if (await ApiClient.useBackend()) {
+        _mutationLock = true;
+        try {
+          await ApiClient.reviewQuestion(resultId, questionIndex, score, comment);
+        } catch (e) { console.warn('[迁移层] reviewQuestion API 失败:', e.message); }
+        setTimeout(() => { _mutationLock = false; }, 5000);
+      }
+      return origScoreQuestion.call(this, resultId, questionIndex, score, comment);
     };
 
     // --- DepartmentManager（完整 CRUD 补丁）---

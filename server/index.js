@@ -6,6 +6,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 
 const { init: initDb, getDb, closeDb, getDbType } = require('./db/database');
 
@@ -21,8 +22,9 @@ async function main() {
 
   // 中间件
   app.use(cors());
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true }));
+  // 收紧 body 限制，避免 50 用户并发时大 body 影响性能
+  app.use(express.json({ limit: '5mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
   // 静态文件（前端页面）
   app.use(express.static(path.join(__dirname, '..')));
@@ -38,12 +40,31 @@ async function main() {
     }
   });
 
+  // 通用速率限制：50人并发场景下防止雪崩
+  const apiLimiter = rateLimit({
+    windowMs: 60 * 1000,    // 1分钟窗口
+    max: 300,                // 每 IP 每分钟 300 次（50用户可同时交卷）
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: '请求过于频繁，请稍后重试' }
+  });
+
+  // 交卷接口（写操作）更严格
+  const submitLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 100,                // 每 IP 每分钟 100 次交卷（足够50人）
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: '交卷请求过于频繁，请稍后重试' }
+  });
+
   // API 路由（按需加载，确保数据库已初始化）
+  app.use('/api/', apiLimiter);
   app.use('/api/auth',      require('./routes/auth'));
   app.use('/api/users',     require('./routes/users'));
   app.use('/api/exams',     require('./routes/exams'));
   app.use('/api/questions', require('./routes/questions'));
-  app.use('/api/results',  require('./routes/results'));
+  app.use('/api/results',  submitLimiter, require('./routes/results'));
   app.use('/api/departments', require('./routes/departments'));
   app.use('/api',           require('./routes/misc'));
 

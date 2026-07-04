@@ -151,7 +151,8 @@
             }
 
             container.innerHTML = results.map(r => {
-                const shortQuestions = r.results.filter(res => res.manualReview);
+                const resultQuestions = (r.results || []);
+                const shortQuestions = resultQuestions.filter(res => res.manualReview);
                 const reviewedCount = shortQuestions.filter(sq => sq.reviewScore !== undefined).length;
                 const statusBadge = r.reviewCompleted
                     ? '<span class="done-badge">已完成阅卷</span>'
@@ -170,9 +171,9 @@
                             ${statusBadge}
                         </div>
                         ${shortQuestions.map((sq, idx) => {
-                            const globalIdx = r.results.indexOf(sq);
+                            const globalIdx = resultQuestions.indexOf(sq);
                             const reviewed = sq.reviewScore !== undefined;
-                            const maxScore = sq.maxScore || sq.score || Math.round((r.totalScore || 100) / r.totalQuestions);
+                            const maxScore = sq.maxScore || sq.score || Math.round((r.totalScore || 100) / (resultQuestions.length || 1));
                             return `
                                 <div class="question-block ${reviewed ? 'reviewed' : ''}">
                                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
@@ -201,8 +202,14 @@
         }
 
         function saveScore(resultId, questionIndex, maxScore) {
-            const score = parseFloat(document.getElementById(`score-${resultId}-${questionIndex}`).value) || 0;
-            const comment = document.getElementById(`comment-${resultId}-${questionIndex}`).value.trim();
+            const scoreEl = document.getElementById(`score-${resultId}-${questionIndex}`);
+            const commentEl = document.getElementById(`comment-${resultId}-${questionIndex}`);
+            if (!scoreEl || !commentEl) {
+                Utils.toast('页面数据异常，请刷新重试', 'error');
+                return;
+            }
+            const score = parseFloat(scoreEl.value) || 0;
+            const comment = commentEl.value.trim();
 
             if (score < 0 || score > maxScore) {
                 Utils.toast(`分数应在 0~${maxScore} 之间`, 'warning');

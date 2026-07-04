@@ -531,6 +531,7 @@
         let cheatCount = 0;
         const maxCheat = 3;
         let autoSaveInterval = null;
+        let _submitGuard = false;
 
         document.getElementById('exam-title').textContent = exam.title;
         document.getElementById('total-count').textContent = totalQuestions;
@@ -680,13 +681,13 @@
                 answers[currentIdx] = idx;
             }
             renderQuestion();
-            saveProgress();
+            debouncedSaveProgress();
         }
 
         // 简答题文本输入处理
         function handleShortInput(value) {
             answers[currentIdx] = value;
-            saveProgress();
+            debouncedSaveProgress();
         }
 
         // 跳转题目
@@ -754,14 +755,19 @@
             }, 1000);
         }
 
-        // 自动保存
-        function saveProgress() {
-            Utils.saveLocal('exam_answers', { examId: exam.id, answers, marked, currentIdx, timeLeft });
+        // 自动保存（500ms 防抖，减少 localStorage 写入频率）
+        let _saveProgressTimer = null;
+        let saveProgressTimer = null;
+        function debouncedSaveProgress() {
+            clearTimeout(_saveProgressTimer);
+            _saveProgressTimer = setTimeout(() => {
+                Utils.saveLocal('exam_answers', { examId: exam.id, answers, marked, currentIdx, timeLeft });
+            }, 500);
         }
 
         function startAutoSave() {
             autoSaveInterval = setInterval(() => {
-                saveProgress();
+                debouncedSaveProgress();
             }, 30000); // 30秒
         }
 
@@ -783,7 +789,7 @@
                 if (currentIdx < 0 || currentIdx >= totalQuestions) {
                     currentIdx = 0;
                 }
-                if (saved.timeLeft && saved.timeLeft < timeLeft) {
+                if (typeof saved.timeLeft === 'number' && saved.timeLeft > 0 && saved.timeLeft < timeLeft) {
                     timeLeft = saved.timeLeft;
                 }
             } else {
@@ -825,8 +831,13 @@
 
         // 执行交卷
         async function doSubmit(isAuto = false) {
+            if (_submitGuard) return;
+            _submitGuard = true;
             clearInterval(timerInterval);
             clearInterval(autoSaveInterval);
+
+            // 关闭可能存在的超时弹窗
+            document.querySelector('.modal-overlay')?.remove();
 
             // 获取当前登录用户
             const currentUser = Utils.getLocal('current_user') || {};
@@ -969,7 +980,7 @@
 
         // 阻止刷新/关闭
         window.addEventListener('beforeunload', (e) => {
-            saveProgress();
+            debouncedSaveProgress();
             e.preventDefault();
             e.returnValue = '考试正在进行中，确定要离开吗？';
         });

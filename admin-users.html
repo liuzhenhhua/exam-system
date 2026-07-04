@@ -589,6 +589,7 @@
         async function resetPwd(id) {
             const accounts = ExamSystem.AccountManager.getExamineeAccounts();
             const account = accounts.find(a => a.id === id);
+            if (!account) { Utils.toast('账号不存在，请刷新列表', 'error'); return; }
             Utils.confirm(`确定要将 ${Utils.escapeHtml(account.real_name)}（${Utils.escapeHtml(account.username)}）的密码重置为默认密码吗？`, async () => {
                 await ExamSystem.AccountManager.resetPassword(id);
                 Utils.toast('密码已重置为默认密码', 'success');
@@ -599,6 +600,7 @@
         async function toggleAccountStatus(id) {
             const accounts = ExamSystem.AccountManager.getExamineeAccounts();
             const account = accounts.find(a => a.id === id);
+            if (!account) { Utils.toast('账号不存在，请刷新列表', 'error'); return; }
             const action = account.status === 'active' ? '禁用' : '启用';
             Utils.confirm(`确定要${action}账号 ${Utils.escapeHtml(account.real_name)}（${Utils.escapeHtml(account.username)}）吗？${account.status === 'active' ? '禁用后该用户将无法登录系统。' : ''}`, async () => {
                 await ExamSystem.AccountManager.toggleStatus(id);
@@ -612,6 +614,7 @@
         async function deleteAccount(id) {
             const accounts = ExamSystem.AccountManager.getExamineeAccounts();
             const account = accounts.find(a => a.id === id);
+            if (!account) { Utils.toast('账号不存在，请刷新列表', 'error'); return; }
             Utils.confirm(`确定要删除账号 ${Utils.escapeHtml(account.real_name)}（${Utils.escapeHtml(account.username)}）吗？删除后无法恢复。`, async () => {
                 await ExamSystem.AccountManager.deleteAccount(id);
                 Utils.toast('账号已删除', 'success');
@@ -660,7 +663,9 @@
                     <div class="form-section" style="margin-top:20px;">
                         <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">为导入的账号统一分配项目（可多选，可后期修改）</label>
                         <div id="batch-project-list" style="display:flex;flex-wrap:wrap;gap:8px;">
-                            ${ExamSystem.ProjectManager.projectTagsHtml([])} Utils.toast('模板已下载', 'success')">
+                            ${ExamSystem.ProjectManager.projectTagsHtml([])}
+                        </div>
+                        <button class="btn-primary" onclick="downloadTemplate(); Utils.toast('模板已下载', 'success')">
                             ${ICONS.download}
                             下载模板
                         </button>
@@ -793,6 +798,7 @@
                         <label style="display:block;font-size:14px;font-weight:500;color:#374151;margin-bottom:8px;">参与项目（可多选，可后期修改）</label>
                         <div id="gen-project-list" style="display:flex;flex-wrap:wrap;gap:8px;">
                             ${ExamSystem.ProjectManager.projectTagsHtml([])}
+                        </div>
                         <div style="font-size:13px;color:#4f46e5;display:flex;align-items:center;gap:8px;">
                             ${ICONS.sparkles}
                             <span>预览：工号将从 <strong id="preview-start">EMP010</strong> 开始连续编号</span>
@@ -863,6 +869,18 @@
             }
             ExportUtil.exportAccountList(accounts);
             Utils.toast('账号列表已导出', 'success');
+        }
+
+        // 下载导入模板
+        function downloadTemplate() {
+            const csv = '工号,姓名,部门,岗位,密码\nEMP001,张三,产品研发部/前端组,产品经理,\nEMP002,李四,产品研发部/后端组,工程师,\n';
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = '账号导入模板.csv';
+            link.click();
+            URL.revokeObjectURL(url);
         }
 
         // 初始化

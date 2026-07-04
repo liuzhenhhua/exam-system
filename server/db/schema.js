@@ -157,8 +157,9 @@ CREATE TABLE IF NOT EXISTS settings (
 CREATE INDEX IF NOT EXISTS idx_questions_scope ON questions(scope, project_id);
 CREATE INDEX IF NOT EXISTS idx_questions_type ON questions(type);
 CREATE INDEX IF NOT EXISTS idx_exams_status ON exams(status);
-CREATE INDEX IF NOT EXISTS idx_results_exam_id ON results(exam_id);
-CREATE INDEX IF NOT EXISTS idx_results_username ON results(username);
+CREATE INDEX IF NOT EXISTS idx_results_exam_user ON results(exam_id, username);
+CREATE INDEX IF NOT EXISTS idx_results_submitted ON results(submitted_at);
+CREATE INDEX IF NOT EXISTS idx_result_details_rid_qidx ON result_details(result_id, question_index);
 CREATE INDEX IF NOT EXISTS idx_result_details_result_id ON result_details(result_id);
 CREATE INDEX IF NOT EXISTS idx_exam_questions_exam_id ON exam_questions(exam_id);
 `;
@@ -311,8 +312,9 @@ CREATE TABLE IF NOT EXISTS settings (
 CREATE INDEX IF NOT EXISTS idx_questions_scope ON questions(scope, project_id);
 CREATE INDEX IF NOT EXISTS idx_questions_type ON questions(type);
 CREATE INDEX IF NOT EXISTS idx_exams_status ON exams(status);
-CREATE INDEX IF NOT EXISTS idx_results_exam_id ON results(exam_id);
-CREATE INDEX IF NOT EXISTS idx_results_username ON results(username);
+CREATE INDEX IF NOT EXISTS idx_results_exam_user ON results(exam_id, username);
+CREATE INDEX IF NOT EXISTS idx_results_submitted ON results(submitted_at);
+CREATE INDEX IF NOT EXISTS idx_result_details_rid_qidx ON result_details(result_id, question_index);
 CREATE INDEX IF NOT EXISTS idx_result_details_result_id ON result_details(result_id);
 CREATE INDEX IF NOT EXISTS idx_exam_questions_exam_id ON exam_questions(exam_id);
 `;

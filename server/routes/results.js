@@ -16,6 +16,7 @@ router.post('/', async (req, res) => {
     const { examId, username, real_name, department, results: answerResults, passScore, totalScore, timeSpent, manualReviewCount } = req.body;
 
     if (!examId || !username) return res.status(400).json({ error: '缺少必要参数' });
+    if (!Array.isArray(answerResults)) return res.status(400).json({ error: '缺少答题结果数据' });
 
     // 检查是否已交卷
     const existing = await db.get('SELECT id FROM results WHERE exam_id = ? AND username = ?', examId, username);
@@ -56,35 +57,44 @@ router.post('/', async (req, res) => {
       return { ...r, isCorrect, score: r.manualReview ? 0 : (isCorrect ? (q.score || 0) : 0), manualReview: r.manualReview || false };
     });
 
-    // 插入主结果记录
     const mrc = manualReviewCount || scoredResults.filter(r => r.manualReview).length;
     const reviewCompleted = mrc === 0;
-    const result = await db.run(`
-      INSERT INTO results (exam_id, user_id, username, real_name, department, score, pass_score, passed, correct_count, wrong_count, total_score, auto_score, objective_score, manual_review_count, review_completed, time_spent, submitted_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, examId, req.user.id || null, username, real_name || '', department || '',
-      autoScore, passScore || 60, reviewCompleted ? (autoScore >= (passScore || 60) ? 1 : 0) : null,
-      correctCount, wrongCount, totalScore || 100, autoScore, autoScore, mrc,
-      reviewCompleted ? 1 : 0, timeSpent || '', new Date().toISOString().replace('T', ' ').slice(0, 19));
 
-    const resultId = result.lastInsertRowid;
-
-    // 插入每题作答明细
+    let resultId;
+    // 主结果 + 明细 + 参与人数更新放在同一事务，避免孤立记录
     await db.transaction(async (tx) => {
-      for (let idx = 0; idx < scoredResults.length; idx++) {
-        const r = scoredResults[idx];
-        const q = questions[idx];
+      const result = await tx.run(`
+        INSERT INTO results (exam_id, user_id, username, real_name, department, score, pass_score, passed, correct_count, wrong_count, total_score, auto_score, objective_score, manual_review_count, review_completed, time_spent, submitted_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, examId, req.user.id || null, username, real_name || '', department || '',
+        autoScore, passScore || 60, reviewCompleted ? (autoScore >= (passScore || 60) ? 1 : 0) : null,
+        correctCount, wrongCount, totalScore || 100, autoScore, autoScore, mrc,
+        reviewCompleted ? 1 : 0, timeSpent || '', new Date().toISOString().replace('T', ' ').slice(0, 19));
+
+      resultId = result.lastInsertRowid || result.lastID;
+
+      // 批量插入每题作答明细（优化：单条多行 INSERT）
+      if (scoredResults.length > 0) {
+        const placeholders = scoredResults.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(',');
+        const flatParams = [];
+        for (let idx = 0; idx < scoredResults.length; idx++) {
+          const r = scoredResults[idx];
+          const q = questions[idx];
+          flatParams.push(
+            resultId, idx, q ? q.original_id : null, r.type || (q ? q.type : 'single'), r.content || '',
+            JSON.stringify(r.userAnswer || null), r.isCorrect ? 1 : 0, r.score || 0,
+            r.manualReview ? 1 : 0, null, '', q ? (q.score || 10) : 10
+          );
+        }
         await tx.run(`
           INSERT INTO result_details (result_id, question_index, question_id, type, content, user_answer, is_correct, score, manual_review, review_score, review_comment, max_score)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, resultId, idx, q ? q.original_id : null, r.type || (q ? q.type : 'single'), r.content || '',
-          JSON.stringify(r.userAnswer || null), r.isCorrect ? 1 : 0, r.score || 0,
-          r.manualReview ? 1 : 0, null, '', q ? (q.score || 10) : 10);
+          VALUES ${placeholders}
+        `, ...flatParams);
       }
-    });
 
-    // 更新考试参与人数
-    await db.run('UPDATE exams SET participants = participants + 1 WHERE id = ?', examId);
+      // 更新考试参与人数
+      await tx.run('UPDATE exams SET participants = participants + 1 WHERE id = ?', examId);
+    });
 
     const fullResult = await db.get('SELECT * FROM results WHERE id = ?', resultId);
     return res.json({
@@ -108,13 +118,15 @@ router.get('/', adminOnly, async (req, res) => {
   try {
     const db = getDb();
     const { examId, review } = req.query;
-    let sql = 'SELECT * FROM results WHERE 1=1';
+    let sql = `SELECT r.*, e.title as exam_title,
+      (SELECT COUNT(*) FROM result_details WHERE result_id = r.id) as question_count
+      FROM results r LEFT JOIN exams e ON r.exam_id = e.id WHERE 1=1`;
     const params = [];
 
-    if (examId) { sql += ' AND exam_id = ?'; params.push(examId); }
-    if (review === 'pending') { sql += ' AND manual_review_count > 0 AND review_completed = 0'; }
+    if (examId) { sql += ' AND r.exam_id = ?'; params.push(examId); }
+    if (review === 'pending') { sql += ' AND r.manual_review_count > 0 AND r.review_completed = 0'; }
 
-    sql += ' ORDER BY submitted_at DESC';
+    sql += ' ORDER BY r.submitted_at DESC';
     const results = await db.all(sql, ...params);
     res.json({ results });
   } catch (err) {
@@ -177,10 +189,16 @@ router.put('/:id/review', adminOnly, async (req, res) => {
   try {
     const db = getDb();
     const resultId = parseInt(req.params.id);
-    const { questionIndex, score, comment } = req.body;
+    const { questionIndex, score: rawScore, comment } = req.body;
+    const score = Number(rawScore) || 0;
 
     const detail = await db.get('SELECT * FROM result_details WHERE result_id = ? AND question_index = ?', resultId, questionIndex);
     if (!detail) return res.status(404).json({ error: '题目不存在' });
+
+    const maxScore = detail.max_score || 10;
+    if (typeof score !== 'number' || score < 0 || score > maxScore) {
+      return res.status(400).json({ error: `分数应在 0~${maxScore} 之间` });
+    }
 
     await db.run('UPDATE result_details SET review_score = ?, review_comment = ?, is_correct = ? WHERE result_id = ? AND question_index = ?',
       score || 0, comment || '', score > 0 ? 1 : 0, resultId, questionIndex);
