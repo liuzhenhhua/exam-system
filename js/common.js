@@ -1111,6 +1111,7 @@ const AccountManager = {
         const accounts = this.getExamineeAccounts();
         let maxId = accounts.length > 0 ? accounts.reduce((max, a) => Math.max(max, a.id), 0) : 0;
         const today = Utils.beijingDate();
+        accountList.forEach(a => {
             maxId++;
             a.id = maxId;
             a.status = a.status || 'active';
@@ -1137,6 +1138,7 @@ const AccountManager = {
         });
         const newAccounts = [];
         const today = Utils.beijingDate();
+        for (let i = 1; i <= count; i++) {
             maxNum++;
             const username = prefix + String(maxNum).padStart(3, '0');
             newAccounts.push({
