@@ -5,6 +5,7 @@
 const express = require('express');
 const { getDb } = require('../db/database');
 const { authMiddleware, adminOnly } = require('../middleware/auth');
+const { beijingNow, beijingDate } = require('../utils/time');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -81,7 +82,7 @@ router.post('/', adminOnly, async (req, res) => {
     `, exam.title, exam.description || '', exam.scope || 'public', exam.scope === 'project' ? exam.project_id : null,
       exam.status || 'draft', exam.start_time || null, exam.end_time || null, exam.duration || 60,
       exam.participants || 0, exam.question_count || 0, exam.total_score || 100, exam.pass_score || 60,
-      JSON.stringify(exam.rules || []), new Date().toISOString());
+      JSON.stringify(exam.rules || []), beijingNow());
 
     const examId = result.lastInsertRowid;
 

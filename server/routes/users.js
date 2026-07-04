@@ -5,6 +5,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { getDb } = require('../db/database');
+const { beijingNow, beijingDate } = require('../utils/time');
 const { authMiddleware, adminOnly } = require('../middleware/auth');
 
 const router = express.Router();
@@ -66,7 +67,7 @@ router.post('/', adminOnly, async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, username, hash, real_name || '', department_id || null, department || '',
       position || '', status || 'active', JSON.stringify(project_ids || []),
-      new Date().toISOString().slice(0, 10));
+      beijingDate());
 
     res.json({ id: result.lastInsertRowid, username, real_name });
   } catch (err) {
@@ -82,8 +83,7 @@ router.post('/batch', adminOnly, async (req, res) => {
     const { users: userList } = req.body;
     if (!Array.isArray(userList) || userList.length === 0) return res.status(400).json({ error: '请提交有效的用户列表' });
 
-    const date = new Date().toISOString().slice(0, 10);
-    let count = 0;
+    const date = beijingDate();
     const errors = [];
 
     await db.transaction(async (tx) => {

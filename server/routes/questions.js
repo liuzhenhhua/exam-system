@@ -5,6 +5,7 @@
 const express = require('express');
 const { getDb } = require('../db/database');
 const { authMiddleware, adminOnly } = require('../middleware/auth');
+const { beijingNow, beijingDate } = require('../utils/time');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -59,7 +60,7 @@ router.post('/', adminOnly, async (req, res) => {
     `, q.type, q.scope || 'public', q.scope === 'project' ? q.project_id : null,
       q.category || '', q.difficulty || 1, q.content,
       JSON.stringify(q.options || null), JSON.stringify(q.answer || null),
-      q.analysis || '', q.status || 'active', q.created || new Date().toISOString().slice(0, 10));
+      q.analysis || '', q.status || 'active', q.created || beijingDate());
     res.json({ id: result.lastInsertRowid });
   } catch (err) {
     console.error('[questions/create] 错误:', err);
@@ -74,7 +75,7 @@ router.post('/batch', adminOnly, async (req, res) => {
     const { questions, scope, project_id } = req.body;
     if (!Array.isArray(questions) || questions.length === 0) return res.status(400).json({ error: '请提交有效的题目列表' });
 
-    const date = new Date().toISOString().slice(0, 10);
+    const date = beijingDate();
     let count = 0;
 
     await db.transaction(async (tx) => {

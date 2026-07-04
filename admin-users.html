@@ -328,7 +328,7 @@
             const accounts = ExamSystem.AccountManager.getExamineeAccounts();
             const active = accounts.filter(a => a.status === 'active').length;
             const disabled = accounts.filter(a => a.status === 'disabled').length;
-            const now = new Date().toISOString().slice(0, 7);
+            const now = Utils.beijingDate().slice(0, 7);
             const newCount = accounts.filter(a => a.created && a.created.startsWith(now)).length;
 
             document.getElementById('stat-total').innerHTML = accounts.length + '<span class="stat-mini-unit"> 个</span>';

@@ -610,7 +610,7 @@
 
             // 获取所有真实考试结果
             const allResults = ExamSystem.ResultManager.getResults();
-            const today = new Date().toISOString().slice(0, 10);
+            const today = Utils.beijingDate();
 
             // 今日考试人数（今日交卷的人数）
             const todayExaminees = allResults.filter(r =>

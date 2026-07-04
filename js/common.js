@@ -565,6 +565,16 @@ const Utils = {
         }, 3000);
     },
 
+    // 北京时间工具函数（所有时间统一 UTC+8）
+    beijingNow() {
+        return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' });
+        // 返回 "2026-07-05 14:30:00"
+    },
+    beijingDate() {
+        return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Shanghai' }).split(' ')[0];
+        // 返回 "2026-07-05"
+    },
+
     // 格式化时间 (秒 -> HH:MM:SS)
     formatTime(seconds) {
         const h = Math.floor(seconds / 3600);
@@ -721,7 +731,7 @@ const ProjectManager = {
         const maxId = projects.length > 0 ? projects.reduce((max, p) => Math.max(max, p.id), 0) : 0;
         project.id = maxId + 1;
         project.status = project.status || 'active';
-        project.created = new Date().toISOString().slice(0, 10);
+        project.created = Utils.beijingDate();
         projects.push(project);
         Utils.saveLocal('projects', projects);
         return project;
@@ -1086,7 +1096,7 @@ const AccountManager = {
         account.id = maxId + 1;
         account.status = account.status || 'active';
         account.project_ids = account.project_ids || [];
-        account.created = new Date().toISOString().slice(0, 10);
+        account.created = Utils.beijingDate();
         // 如果传入了部门ID，同步部门名称/路径
         if (account.departmentId) {
             account.department = DepartmentManager.getFullPath(account.departmentId) || account.department || '';
@@ -1100,8 +1110,7 @@ const AccountManager = {
     batchAddAccounts(accountList) {
         const accounts = this.getExamineeAccounts();
         let maxId = accounts.length > 0 ? accounts.reduce((max, a) => Math.max(max, a.id), 0) : 0;
-        const today = new Date().toISOString().slice(0, 10);
-        accountList.forEach(a => {
+        const today = Utils.beijingDate();
             maxId++;
             a.id = maxId;
             a.status = a.status || 'active';
@@ -1127,8 +1136,7 @@ const AccountManager = {
             }
         });
         const newAccounts = [];
-        const today = new Date().toISOString().slice(0, 10);
-        for (let i = 1; i <= count; i++) {
+        const today = Utils.beijingDate();
             maxNum++;
             const username = prefix + String(maxNum).padStart(3, '0');
             newAccounts.push({
@@ -1288,7 +1296,7 @@ const QuestionBankManager = {
         const maxId = questions.length > 0 ? questions.reduce((max, q) => Math.max(max, q.id), 0) : 0;
         question.id = maxId + 1;
         question.status = 'active';
-        question.created = new Date().toISOString().slice(0, 10);
+        question.created = Utils.beijingDate();
         question.scope = question.scope || 'public';
         question.project_id = question.scope === 'project' ? (question.project_id || null) : null;
         question.options = Array.isArray(question.options) ? question.options : this._normalizeOptions(question);
@@ -1403,7 +1411,7 @@ const ExamManager = {
         exam.scope = exam.scope || 'public';
         exam.project_id = exam.scope === 'project' ? (exam.project_id || null) : null;
         exam.status = exam.status || 'draft';
-        exam.created_at = new Date().toISOString();
+        exam.created_at = Utils.beijingNow();
         exams.push(exam);
         Utils.saveLocal('admin_exams', exams);
 
@@ -1607,7 +1615,7 @@ const ResultManager = {
         const results = this.getResults();
         const maxId = results.length > 0 ? results.reduce((max, r) => Math.max(max, r.id || 0), 0) : 0;
         result.id = maxId + 1;
-        result.submittedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        result.submittedAt = Utils.beijingNow();
         result.reviewCompleted = result.manualReviewCount === 0; // 无简答题则自动完成
         // 保存客观题得分快照，阅卷前员工端只展示此分数
         result.objectiveScore = result.autoScore !== undefined ? result.autoScore : result.score;
@@ -1783,7 +1791,7 @@ const AdminManager = {
         admin.role = admin.role || 'admin';
         admin.project_ids = admin.project_ids || [];
         admin.modules = admin.modules || ['dashboard', 'questions', 'exams', 'statistics'];
-        admin.created = new Date().toISOString().slice(0, 10);
+        admin.created = Utils.beijingDate();
         admins.push(admin);
         Utils.saveLocal('admin_accounts', admins);
         return admin;
@@ -2384,7 +2392,7 @@ const ExportUtil = {
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `成绩单_${examTitle}_${new Date().toISOString().slice(0, 10)}.csv`;
+        link.download = `成绩单_${examTitle}_${Utils.beijingDate()}.csv`;
         link.click();
         URL.revokeObjectURL(link.href);
     },
@@ -2435,7 +2443,7 @@ const ExportUtil = {
         // 添加汇总Sheet
         const summaryData = [
             { '项目': '考试名称', '数值': examTitle },
-            { '项目': '导出时间', '数值': new Date().toLocaleString('zh-CN') },
+            { '项目': '导出时间', '数值': new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }) },
             { '项目': '参加人数', '数值': total + ' 人' },
             { '项目': '通过人数', '数值': passed + ' 人' },
             { '项目': '未通过人数', '数值': (total - passed) + ' 人' },
@@ -2448,7 +2456,7 @@ const ExportUtil = {
         summaryWs['!cols'] = [{ wch: 16 }, { wch: 30 }];
         XLSX.utils.book_append_sheet(wb, summaryWs, '汇总信息');
 
-        XLSX.writeFile(wb, `成绩单_${examTitle}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        XLSX.writeFile(wb, `成绩单_${examTitle}_${Utils.beijingDate()}.xlsx`);
     },
 
     // 导出单个考生成绩单
@@ -2470,7 +2478,7 @@ const ExportUtil = {
             { '项目': '答错题数', '数值': score.wrongCount },
             { '项目': '正确率', '数值': score.correctRate + '%' },
             { '项目': '用时', '数值': Utils.formatTime(score.timeSpent) },
-            { '项目': '交卷时间', '数值': new Date().toLocaleString('zh-CN') }
+            { '项目': '交卷时间', '数值': new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }) }
         ];
 
         const ws = XLSX.utils.json_to_sheet(data);
@@ -2512,7 +2520,7 @@ const ExportUtil = {
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = `考试人员账号列表_${new Date().toISOString().slice(0, 10)}.csv`;
+            link.download = `考试人员账号列表_${Utils.beijingDate()}.csv`;
             link.click();
             URL.revokeObjectURL(link.href);
             return;
@@ -2531,7 +2539,7 @@ const ExportUtil = {
         ws['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 8 }, { wch: 12 }];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, '账号列表');
-        XLSX.writeFile(wb, `考试人员账号列表_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        XLSX.writeFile(wb, `考试人员账号列表_${Utils.beijingDate()}.xlsx`);
     }
 };
 

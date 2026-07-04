@@ -5,6 +5,7 @@
 const express = require('express');
 const { getDb } = require('../db/database');
 const { authMiddleware, adminOnly } = require('../middleware/auth');
+const { beijingNow, beijingDate } = require('../utils/time');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -69,7 +70,7 @@ router.post('/', async (req, res) => {
       `, examId, req.user.id || null, username, real_name || '', department || '',
         autoScore, passScore || 60, reviewCompleted ? (autoScore >= (passScore || 60) ? 1 : 0) : null,
         correctCount, wrongCount, totalScore || 100, autoScore, autoScore, mrc,
-        reviewCompleted ? 1 : 0, timeSpent || '', new Date().toISOString().replace('T', ' ').slice(0, 19));
+        reviewCompleted ? 1 : 0, timeSpent || '', beijingNow());
 
       resultId = result.lastInsertRowid || result.lastID;
 

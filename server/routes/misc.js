@@ -6,6 +6,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { getDb, getDbType } = require('../db/database');
 const { authMiddleware, adminOnly } = require('../middleware/auth');
+const { beijingNow, beijingDate } = require('../utils/time');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -37,7 +38,7 @@ router.post('/admins', adminOnly, async (req, res) => {
     const result = await db.run(`
       INSERT INTO admins (username, password_hash, real_name, department, role, status, created)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, username, hash, real_name || '', department || '', role || 'admin', 'active', new Date().toISOString().slice(0, 10));
+    `, username, hash, real_name || '', department || '', role || 'admin', 'active', beijingDate());
     res.json({ id: result.lastInsertRowid });
   } catch (err) {
     console.error('[admins/create] 错误:', err);
@@ -96,7 +97,7 @@ router.post('/projects', adminOnly, async (req, res) => {
     const { name, code, description } = req.body;
     if (!name) return res.status(400).json({ error: '项目名称不能为空' });
     const result = await db.run('INSERT INTO projects (name, code, description, status, created) VALUES (?, ?, ?, ?, ?)',
-      name, code || '', description || '', 'active', new Date().toISOString().slice(0, 10));
+      name, code || '', description || '', 'active', beijingDate());
     res.json({ id: result.lastInsertRowid, name });
   } catch (err) {
     console.error('[projects/create] 错误:', err);

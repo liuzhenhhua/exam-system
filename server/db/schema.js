@@ -4,6 +4,7 @@
  * dbType = 'sqlite' 时使用同步 API，dbType = 'pg' 时使用 async API
  */
 const bcrypt = require('bcryptjs');
+const { beijingDate } = require('../utils/time');
 
 const SQLITE_SCHEMA = `
 CREATE TABLE IF NOT EXISTS admins (
@@ -337,7 +338,7 @@ async function seedData(db, dbType) {
     await db.run(`
       INSERT INTO admins (username, password_hash, real_name, department, role, status, project_ids, modules, created)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, 'admin', hash, '系统管理员', '管理员', 'super_admin', 'active', '[]', '["dashboard","questions","exams","statistics","users","review","settings"]', new Date().toISOString().slice(0, 10));
+    `, 'admin', hash, '系统管理员', '管理员', 'super_admin', 'active', '[]', '["dashboard","questions","exams","statistics","users","review","settings"]', beijingDate());
   }
 
   const catCount = await db.get('SELECT COUNT(*) as count FROM categories');
@@ -389,7 +390,7 @@ function seedDataSync(db) {
     db.prepare(`
       INSERT INTO admins (username, password_hash, real_name, department, role, status, project_ids, modules, created)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run('admin', hash, '系统管理员', '管理员', 'super_admin', 'active', '[]', '["dashboard","questions","exams","statistics","users","review","settings"]', new Date().toISOString().slice(0, 10));
+    `).run('admin', hash, '系统管理员', '管理员', 'super_admin', 'active', '[]', '["dashboard","questions","exams","statistics","users","review","settings"]', beijingDate());
   }
 
   const catCount = db.prepare('SELECT COUNT(*) as count FROM categories').get();
