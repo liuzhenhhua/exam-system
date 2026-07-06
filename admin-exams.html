@@ -915,8 +915,8 @@
         }
 
         function deleteExam(id) {
-            Utils.confirm('确定要删除此考试吗？删除后无法恢复。', () => {
-                ExamSystem.ExamManager.deleteExam(id);
+            Utils.confirm('确定要删除此考试吗？删除后无法恢复。', async () => {
+                await ExamSystem.ExamManager.deleteExam(id);
                 Utils.toast('考试已删除', 'success');
                 renderExams();
             }, '删除确认');

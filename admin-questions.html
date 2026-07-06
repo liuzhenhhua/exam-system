@@ -958,8 +958,8 @@
         }
 
         function deleteQuestion(id) {
-            Utils.confirm(`确定要删除题目 #${String(id).padStart(4, '0')} 吗？删除后不可恢复。`, () => {
-                ExamSystem.QuestionBankManager.deleteQuestion(id);
+            Utils.confirm(`确定要删除题目 #${String(id).padStart(4, '0')} 吗？删除后不可恢复。`, async () => {
+                await ExamSystem.QuestionBankManager.deleteQuestion(id);
                 Utils.toast('题目已删除', 'success');
                 renderQuestions();
             }, '删除确认');

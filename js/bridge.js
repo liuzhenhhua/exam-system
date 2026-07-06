@@ -65,6 +65,9 @@
 
   function patchDataManagers() {
 
+    // 突变锁：防止后台同步覆盖刚执行的增删改（5秒以应对50人并发慢响应）
+    let _mutationLock = false;
+
     // --- AccountManager ---
     const origGetExaminee = AccountManager.getExamineeAccounts;
     AccountManager.getExamineeAccounts = function () {
@@ -166,13 +169,15 @@
     const origGetExams = ExamManager.getExams;
     ExamManager.getExams = function () {
       const stored = Utils.getLocal('admin_exams');
-      ApiClient.useBackend().then(available => {
-        if (available) {
-          ApiClient.getExams({ pageSize: 500 }).then(data => {
-            if (data.exams) Utils.saveLocal('admin_exams', data.exams);
-          }).catch(() => {});
-        }
-      });
+      if (!_mutationLock) {
+        ApiClient.useBackend().then(available => {
+          if (available && !_mutationLock) {
+            ApiClient.getExams({ pageSize: 500 }).then(data => {
+              if (data.exams && !_mutationLock) Utils.saveLocal('admin_exams', data.exams);
+            }).catch(() => {});
+          }
+        });
+      }
       return stored || [];
     };
 
@@ -222,7 +227,10 @@
     const origDeleteExam = ExamManager.deleteExam;
     ExamManager.deleteExam = async function (id) {
       if (await ApiClient.useBackend()) {
-        ApiClient.deleteExam(id).catch(() => {});
+        _mutationLock = true;
+        try { await ApiClient.deleteExam(id); }
+        catch (e) { console.warn('[迁移层] deleteExam API 失败:', e.message); }
+        setTimeout(() => { _mutationLock = false; }, 5000);
       }
       return origDeleteExam.call(this, id);
     };
@@ -231,14 +239,51 @@
     const origGetQuestions = QuestionBankManager.getQuestions;
     QuestionBankManager.getQuestions = function () {
       const stored = Utils.getLocal('question_bank');
+      if (!_mutationLock) {
+        ApiClient.useBackend().then(available => {
+          if (available && !_mutationLock) {
+            ApiClient.getQuestions({ pageSize: 2000 }).then(data => {
+              if (data.questions && !_mutationLock) Utils.saveLocal('question_bank', data.questions);
+            }).catch(() => {});
+          }
+        });
+      }
+      return stored || [];
+    };
+
+    const origAddQuestion = QuestionBankManager.addQuestion;
+    QuestionBankManager.addQuestion = function (question) {
+      const result = origAddQuestion.call(this, question);
+      // 异步同步到后端
       ApiClient.useBackend().then(available => {
         if (available) {
-          ApiClient.getQuestions({ pageSize: 2000 }).then(data => {
-            if (data.questions) Utils.saveLocal('question_bank', data.questions);
-          }).catch(() => {});
+          ApiClient.addQuestion(question).catch(e =>
+            console.warn('[迁移层] addQuestion API 失败:', e.message));
         }
       });
-      return stored || [];
+      return result;
+    };
+
+    const origUpdateQuestion = QuestionBankManager.updateQuestion;
+    QuestionBankManager.updateQuestion = async function (id, updates) {
+      if (await ApiClient.useBackend()) {
+        _mutationLock = true;
+        try { await ApiClient.updateQuestion(id, updates); }
+        catch (e) { console.warn('[迁移层] updateQuestion API 失败:', e.message); }
+        setTimeout(() => { _mutationLock = false; }, 5000);
+      }
+      return origUpdateQuestion.call(this, id, updates);
+    };
+
+    const origDeleteQuestion = QuestionBankManager.deleteQuestion;
+    QuestionBankManager.deleteQuestion = async function (id) {
+      if (await ApiClient.useBackend()) {
+        _mutationLock = true;
+        try { await ApiClient.deleteQuestion(id); }
+        catch (e) { console.warn('[迁移层] deleteQuestion API 失败:', e.message); }
+        setTimeout(() => { _mutationLock = false; }, 5000);
+      }
+      return origDeleteQuestion.call(this, id);
     };
 
     const origBatchAddQuestions = QuestionBankManager.batchAddQuestions;
@@ -288,16 +333,7 @@
       };
       return mapped;
     }
-
-    // 突变锁：防止后台同步覆盖刚执行的增删改（5秒以应对50人并发慢响应）
-    let _mutationLock = false;
-    function withMutationLock(fn) {
-      return async function (...args) {
-        _mutationLock = true;
-        try { return await fn.apply(this, args); }
-        finally { setTimeout(() => { _mutationLock = false; }, 5000); }
-      };
-    }
+    // 后端 DB 行 → 前端 camelCase 格式转换（已在上面定义，此处为注释分隔符）
 
     const origGetResults = ResultManager.getResults;
     ResultManager.getResults = function () {
