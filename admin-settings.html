@@ -382,22 +382,11 @@
                 let failCount = 0;
                 for (const id of ids) {
                     try {
-                        if (window.ApiClient && await ApiClient.useBackend()) {
-                            await ApiClient.deleteAdmin(id);
-                        }
+                        await ExamSystem.AdminManager.deleteAdmin(id);
                         successCount++;
                     } catch (e) {
                         failCount++;
                     }
-                }
-                // 重新从后端拉取
-                if (window.ApiClient && await ApiClient.useBackend()) {
-                    try {
-                        const data = await ApiClient.getAdmins();
-                        if (data.admins) {
-                            Utils.saveLocal('admins', data.admins);
-                        }
-                    } catch (e) { /* ignore */ }
                 }
                 renderAdmins();
                 if (failCount > 0) {
@@ -453,32 +442,19 @@
 
             for (const admin of admins) {
                 try {
-                    if (window.ApiClient && await ApiClient.useBackend()) {
-                        await ApiClient.addAdmin({
-                            username: admin.username,
-                            real_name: admin.real_name,
-                            password: admin.password,
-                            role: admin.role,
-                            status: 'active'
-                        });
-                    } else {
-                        ExamSystem.AdminManager.addAdmin(admin);
-                    }
+                    await ExamSystem.AdminManager.addAdmin({
+                        username: admin.username,
+                        real_name: admin.real_name,
+                        password: admin.password,
+                        role: admin.role,
+                        status: 'active'
+                    });
                     successCount++;
                 } catch (e) {
                     failCount++;
                 }
             }
 
-            // 重新拉取
-            if (window.ApiClient && await ApiClient.useBackend()) {
-                try {
-                    const data = await ApiClient.getAdmins();
-                    if (data.admins) {
-                        Utils.saveLocal('admins', data.admins);
-                    }
-                } catch (e) { /* ignore */ }
-            }
             Utils.closeModal(document.querySelector('.modal-overlay'));
             renderAdmins();
 
@@ -871,7 +847,7 @@
             togglePerm();
         }
 
-        function saveAdmin(editId, btn) {
+        async function saveAdmin(editId, btn) {
             const username = document.getElementById('admin-username').value.trim();
             const realName = document.getElementById('admin-realname').value.trim();
             const password = document.getElementById('admin-password').value.trim();
@@ -893,14 +869,14 @@
             if (password) data.password = password;
 
             if (editId) {
-                ExamSystem.AdminManager.updateAdmin(editId, data);
+                await ExamSystem.AdminManager.updateAdmin(editId, data);
                 Utils.toast('管理员信息已更新', 'success');
             } else {
                 if (ExamSystem.AdminManager.getAdmins().some(a => a.username === username)) {
                     Utils.toast('用户名已存在', 'warning');
                     return;
                 }
-                ExamSystem.AdminManager.addAdmin(data);
+                await ExamSystem.AdminManager.addAdmin(data);
                 Utils.toast('管理员创建成功', 'success');
             }
 
@@ -912,9 +888,9 @@
             showAddAdminModal(id);
         }
 
-        function deleteAdmin(id) {
-            Utils.confirm('确定要删除此管理员吗？', () => {
-                ExamSystem.AdminManager.deleteAdmin(id);
+        async function deleteAdmin(id) {
+            Utils.confirm('确定要删除此管理员吗？', async () => {
+                await ExamSystem.AdminManager.deleteAdmin(id);
                 Utils.toast('管理员已删除', 'success');
                 renderAdmins();
             }, '删除确认');

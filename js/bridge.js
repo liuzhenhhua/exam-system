@@ -494,14 +494,72 @@
     const origGetAdmins = AdminManager.getAdmins;
     AdminManager.getAdmins = function () {
       const stored = Utils.getLocal('admin_accounts');
-      ApiClient.useBackend().then(available => {
-        if (available) {
-          ApiClient.getAdmins().then(data => {
-            if (data.admins) Utils.saveLocal('admin_accounts', data.admins);
-          }).catch(() => {});
-        }
-      });
+      if (!_mutationLock) {
+        ApiClient.useBackend().then(available => {
+          if (available && !_mutationLock) {
+            ApiClient.getAdmins().then(data => {
+              if (data.admins && !_mutationLock) Utils.saveLocal('admin_accounts', data.admins);
+            }).catch(() => {});
+          }
+        });
+      }
       return stored || [];
+    };
+
+    const origAddAdmin = AdminManager.addAdmin;
+    AdminManager.addAdmin = async function (admin) {
+      _mutationLock = true;
+      if (await ApiClient.useBackend()) {
+        try {
+          const result = await ApiClient.addAdmin({
+            username: admin.username,
+            password: admin.password,
+            real_name: admin.real_name || '',
+            role: admin.role || 'admin',
+            department: admin.department || ''
+          });
+          admin.id = result.id;
+        } catch (e) { console.warn('[迁移层] addAdmin API 失败:', e.message); }
+      }
+      const created = origAddAdmin.call(this, admin);
+      setTimeout(() => { _mutationLock = false; }, 5000);
+      return created;
+    };
+
+    const origUpdateAdmin = AdminManager.updateAdmin;
+    AdminManager.updateAdmin = async function (id, updates) {
+      _mutationLock = true;
+      if (await ApiClient.useBackend()) {
+        try {
+          const payload = {};
+          if (updates.real_name !== undefined) payload.real_name = updates.real_name;
+          if (updates.role !== undefined) payload.role = updates.role;
+          if (updates.status !== undefined) payload.status = updates.status;
+          if (updates.password) payload.password = updates.password;
+          if (updates.modules !== undefined) payload.modules = updates.modules;
+          if (updates.project_ids !== undefined) payload.project_ids = updates.project_ids;
+          await ApiClient.updateAdmin(id, payload);
+        } catch (e) { console.warn('[迁移层] updateAdmin API 失败:', e.message); }
+      }
+      const result = origUpdateAdmin.call(this, id, updates);
+      setTimeout(() => { _mutationLock = false; }, 5000);
+      return result;
+    };
+
+    const origDeleteAdmin = AdminManager.deleteAdmin;
+    AdminManager.deleteAdmin = async function (id) {
+      _mutationLock = true;
+      if (await ApiClient.useBackend()) {
+        try {
+          await ApiClient.deleteAdmin(id);
+        } catch (e) {
+          console.warn('[迁移层] deleteAdmin API 失败:', e.message);
+          _mutationLock = false;
+          return;
+        }
+      }
+      origDeleteAdmin.call(this, id);
+      setTimeout(() => { _mutationLock = false; }, 5000);
     };
 
     // --- PositionManager（岗位数据同步）---
