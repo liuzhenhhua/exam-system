@@ -530,10 +530,17 @@
                         if (isCorrectOpt) icon = ' ✅';
                         if (isUserSelected && !isCorrectOpt) icon = ' ❌';
 
+                        // 兼容纯文本和 {text, image} 格式
+                        const optObj = typeof opt === 'object' ? opt : { text: opt, image: null };
+                        const optText = optObj.text || '';
+                        const optImgHtml = optObj.image
+                            ? `<img class="option-img" src="${Utils.escapeAttr(optObj.image)}" alt="选项图片" style="margin-top:4px;">`
+                            : '';
+
                         optionsHtml += `
                             <div class="qr-option ${cls}">
                                 <span class="qr-option-label">${Utils.optionLetter(oi)}.</span>
-                                <span>${Utils.escapeHtml(opt)}${icon}</span>
+                                <span>${Utils.escapeHtml(optText)}${icon}${optImgHtml}</span>
                             </div>
                         `;
                     });

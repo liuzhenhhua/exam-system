@@ -304,6 +304,19 @@ body {
     color: #374151;
     padding-top: 2px;
 }
+.option-img {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    display: block;
+    margin-top: 4px;
+}
+.option-mixed {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
 
 /* ===== Question nav grid ===== */
 .q-nav-item {

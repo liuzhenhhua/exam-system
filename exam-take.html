@@ -624,10 +624,19 @@
                     } else {
                         isSelected = answers[currentIdx] === idx;
                     }
+                    // 兼容纯文本和 {text, image} 格式
+                    const optObj = typeof opt === 'object' ? opt : { text: opt, image: null };
+                    const optText = optObj.text ? Utils.escapeHtml(optObj.text) : '';
+                    const optImgHtml = optObj.image
+                        ? `<img class="option-img" src="${Utils.escapeAttr(optObj.image)}" alt="选项图片">`
+                        : '';
                     optionsHtml += `
                         <div class="option-item ${isSelected ? 'selected' : ''}" onclick="selectOption(${idx})">
                             <div class="option-label">${Utils.optionLetter(idx)}</div>
-                            <div class="option-text">${Utils.escapeHtml(opt)}</div>
+                            <div class="option-mixed">
+                                ${optText ? `<span class="option-text">${optText}</span>` : ''}
+                                ${optImgHtml}
+                            </div>
                         </div>
                     `;
                 });

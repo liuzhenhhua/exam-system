@@ -115,6 +115,16 @@
         .option-row .mark-correct.correct { border-color: #16a34a; color: #16a34a; background: #dcfce7; }
         .option-row .remove-option { color: #9ca3af; cursor: pointer; padding: 4px; }
         .option-row .remove-option:hover { color: #ef4444; }
+        .option-row .option-img-btn {
+            width: 32px; height: 32px; min-width: 32px; border-radius: 8px; border: 2px solid #e5e7eb;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; color: #9ca3af; transition: all 0.2s; font-size: 13px;
+        }
+        .option-row .option-img-btn:hover { border-color: #4f46e5; color: #4f46e5; background: #eef2ff; }
+        .option-row .option-img-btn.has-img { border-color: #4f46e5; color: #4f46e5; background: #eef2ff; }
+        .option-row .option-img-preview {
+            max-width: 60px; max-height: 40px; border-radius: 4px; border: 1px solid #e5e7eb; margin-left: 4px; display: none;
+        }
+        .option-row .option-img-preview.show { display: inline-block; }
         .modal-content { max-width: 680px; }
 
         .category-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
@@ -533,27 +543,35 @@
                     <div class="form-section">
                         <label class="form-label">选项（点击圆圈标记正确答案）</label>
                         <div id="options-container">
-                            <div class="option-row">
+                            <div class="option-row" data-idx="0">
                                 <div class="option-letter">A</div>
                                 <input type="text" class="option-input" placeholder="选项内容">
+                                <div class="option-img-btn" onclick="triggerOptionImageUpload(this)" title="上传图片">${ICONS.image}</div>
+                                <img class="option-img-preview" src="" alt="选项图片" onclick="triggerOptionImageUpload(this.parentNode.querySelector('.option-img-btn'))">
                                 <div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div>
                                 <div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div>
                             </div>
-                            <div class="option-row">
+                            <div class="option-row" data-idx="1">
                                 <div class="option-letter">B</div>
                                 <input type="text" class="option-input" placeholder="选项内容">
+                                <div class="option-img-btn" onclick="triggerOptionImageUpload(this)" title="上传图片">${ICONS.image}</div>
+                                <img class="option-img-preview" src="" alt="选项图片" onclick="triggerOptionImageUpload(this.parentNode.querySelector('.option-img-btn'))">
                                 <div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div>
                                 <div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div>
                             </div>
-                            <div class="option-row">
+                            <div class="option-row" data-idx="2">
                                 <div class="option-letter">C</div>
                                 <input type="text" class="option-input" placeholder="选项内容">
+                                <div class="option-img-btn" onclick="triggerOptionImageUpload(this)" title="上传图片">${ICONS.image}</div>
+                                <img class="option-img-preview" src="" alt="选项图片" onclick="triggerOptionImageUpload(this.parentNode.querySelector('.option-img-btn'))">
                                 <div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div>
                                 <div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div>
                             </div>
-                            <div class="option-row">
+                            <div class="option-row" data-idx="3">
                                 <div class="option-letter">D</div>
                                 <input type="text" class="option-input" placeholder="选项内容">
+                                <div class="option-img-btn" onclick="triggerOptionImageUpload(this)" title="上传图片">${ICONS.image}</div>
+                                <img class="option-img-preview" src="" alt="选项图片" onclick="triggerOptionImageUpload(this.parentNode.querySelector('.option-img-btn'))">
                                 <div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div>
                                 <div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div>
                             </div>
@@ -604,14 +622,24 @@
                     container.innerHTML = '';
                     existing.options.forEach((opt, i) => {
                         const letter = Utils.optionLetter(i);
+                        // 兼容纯文本和 {text, image} 两种格式
+                        const optObj = typeof opt === 'object' ? opt : { text: opt, image: '' };
+                        const optText = Utils.escapeAttr(optObj.text || '');
+                        const optImg = optObj.image || '';
+                        const hasImg = optImg ? ' has-img' : '';
+                        const imgShow = optImg ? ' show' : '';
                         const isCorrect = existing.type === 'multiple'
                             ? (Array.isArray(existing.answer) && existing.answer.includes(i))
                             : existing.answer === i;
                         const row = document.createElement('div');
                         row.className = 'option-row';
+                        row.setAttribute('data-idx', i);
                         row.innerHTML = `
                             <div class="option-letter">${letter}</div>
-                            <input type="text" class="option-input" value="${Utils.escapeAttr(opt)}"${existing.type === 'judge' ? ' readonly' : ''}>
+                            <input type="text" class="option-input" value="${optText}"${existing.type === 'judge' ? ' readonly' : ''}>
+                            <div class="option-img-btn${hasImg}" onclick="triggerOptionImageUpload(this)" title="${optImg ? '点击更换图片' : '上传图片'}">${ICONS.image}</div>
+                            <img class="option-img-preview${imgShow}" src="${Utils.escapeAttr(optImg)}" alt="选项图片" onclick="triggerOptionImageUpload(this.parentNode.querySelector('.option-img-btn'))">
+                            <input type="hidden" class="option-img-data" value="${Utils.escapeAttr(optImg)}">
                             <div class="mark-correct ${isCorrect ? 'correct' : ''}" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div>
                             ${existing.type === 'judge' ? '' : `<div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div>`}
                         `;
@@ -652,14 +680,20 @@
                         // 判断题只保留2个选项
                         const container = overlay.querySelector('#options-container');
                         container.innerHTML = `
-                            <div class="option-row">
+                            <div class="option-row" data-idx="0">
                                 <div class="option-letter">A</div>
                                 <input type="text" class="option-input" value="正确" readonly>
+                                <div class="option-img-btn" onclick="triggerOptionImageUpload(this)" title="上传图片">${ICONS.image}</div>
+                                <img class="option-img-preview" src="" alt="选项图片" onclick="triggerOptionImageUpload(this.parentNode.querySelector('.option-img-btn'))">
+                                <input type="hidden" class="option-img-data" value="">
                                 <div class="mark-correct" onclick="this.classList.toggle('correct')">${ICONS.check}</div>
                             </div>
-                            <div class="option-row">
+                            <div class="option-row" data-idx="1">
                                 <div class="option-letter">B</div>
                                 <input type="text" class="option-input" value="错误" readonly>
+                                <div class="option-img-btn" onclick="triggerOptionImageUpload(this)" title="上传图片">${ICONS.image}</div>
+                                <img class="option-img-preview" src="" alt="选项图片" onclick="triggerOptionImageUpload(this.parentNode.querySelector('.option-img-btn'))">
+                                <input type="hidden" class="option-img-data" value="">
                                 <div class="mark-correct" onclick="this.classList.toggle('correct')">${ICONS.check}</div>
                             </div>
                         `;
@@ -676,12 +710,18 @@
                         // 新增题目切到非判断/简答题型，恢复4个空选项
                         const container = overlay.querySelector('#options-container');
                         if (container.children.length < 2 || container.querySelector('.option-input[readonly]')) {
-                            container.innerHTML = `
-                                <div class="option-row"><div class="option-letter">A</div><input type="text" class="option-input" placeholder="选项内容"><div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div><div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div></div>
-                                <div class="option-row"><div class="option-letter">B</div><input type="text" class="option-input" placeholder="选项内容"><div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div><div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div></div>
-                                <div class="option-row"><div class="option-letter">C</div><input type="text" class="option-input" placeholder="选项内容"><div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div><div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div></div>
-                                <div class="option-row"><div class="option-letter">D</div><input type="text" class="option-input" placeholder="选项内容"><div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div><div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div></div>
-                            `;
+                            const letters = ['A','B','C','D'];
+                            container.innerHTML = letters.map((l, i) => `
+                                <div class="option-row" data-idx="${i}">
+                                    <div class="option-letter">${l}</div>
+                                    <input type="text" class="option-input" placeholder="选项内容">
+                                    <div class="option-img-btn" onclick="triggerOptionImageUpload(this)" title="上传图片">${ICONS.image}</div>
+                                    <img class="option-img-preview" src="" alt="选项图片" onclick="triggerOptionImageUpload(this.parentNode.querySelector('.option-img-btn'))">
+                                    <input type="hidden" class="option-img-data" value="">
+                                    <div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div>
+                                    <div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div>
+                                </div>
+                            `).join('');
                         }
                     }
                 });
@@ -706,9 +746,13 @@
             const letter = Utils.optionLetter(count);
             const row = document.createElement('div');
             row.className = 'option-row';
+            row.setAttribute('data-idx', count);
             row.innerHTML = `
                 <div class="option-letter">${letter}</div>
                 <input type="text" class="option-input" placeholder="选项内容">
+                <div class="option-img-btn" onclick="triggerOptionImageUpload(this)" title="上传图片">${ICONS.image}</div>
+                <img class="option-img-preview" src="" alt="选项图片" onclick="triggerOptionImageUpload(this.parentNode.querySelector('.option-img-btn'))">
+                <input type="hidden" class="option-img-data" value="">
                 <div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div>
                 <div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div>
             `;
@@ -725,6 +769,7 @@
             // 重新编号
             container.querySelectorAll('.option-row').forEach((row, i) => {
                 row.querySelector('.option-letter').textContent = Utils.optionLetter(i);
+                row.setAttribute('data-idx', i);
             });
         }
 
@@ -762,6 +807,64 @@
             document.getElementById('q-image-preview').innerHTML = '';
         }
 
+        // ========== 选项图片处理 ==========
+        let _optionImgTarget = null; // 当前正在上传图片的目标按钮
+
+        function triggerOptionImageUpload(btn) {
+            _optionImgTarget = btn;
+            // 使用全局隐藏 file input
+            let fileInput = document.getElementById('option-img-file-input');
+            if (!fileInput) {
+                fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.id = 'option-img-file-input';
+                fileInput.accept = 'image/*';
+                fileInput.style.display = 'none';
+                fileInput.addEventListener('change', handleOptionImageUpload);
+                document.body.appendChild(fileInput);
+            }
+            fileInput.click();
+        }
+
+        function handleOptionImageUpload(e) {
+            const file = e.target.files[0];
+            if (!file || !_optionImgTarget) return;
+            if (file.size > 2 * 1024 * 1024) {
+                Utils.toast('图片大小不能超过2MB', 'warning');
+                e.target.value = '';
+                _optionImgTarget = null;
+                return;
+            }
+            const reader = new FileReader();
+            const btn = _optionImgTarget;
+            reader.onload = function(ev) {
+                const dataUrl = ev.target.result;
+                const row = btn.closest('.option-row');
+                const preview = row.querySelector('.option-img-preview');
+                const hidden = row.querySelector('.option-img-data');
+                if (preview) {
+                    preview.src = dataUrl;
+                    preview.classList.add('show');
+                }
+                if (hidden) hidden.value = dataUrl;
+                btn.classList.add('has-img');
+                btn.title = '点击更换图片';
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+            _optionImgTarget = null;
+        }
+
+        function removeOptionImage(btn) {
+            const row = btn.closest('.option-row');
+            const preview = row.querySelector('.option-img-preview');
+            const hidden = row.querySelector('.option-img-data');
+            if (preview) { preview.src = ''; preview.classList.remove('show'); }
+            if (hidden) hidden.value = '';
+            btn.classList.remove('has-img');
+            btn.title = '上传图片';
+        }
+
         function saveQuestion(btn) {
             const overlay = btn.closest('.modal-overlay');
             const scope = overlay.querySelector('input[name="qscope"]:checked').value;
@@ -794,11 +897,16 @@
                 const correctIndices = [];
                 optionRows.forEach((row, i) => {
                     const input = row.querySelector('.option-input');
-                    if (input && input.value.trim()) {
-                        options.push(input.value.trim());
-                        if (row.querySelector('.mark-correct.correct')) {
-                            correctIndices.push(i);
-                        }
+                    const imgData = row.querySelector('.option-img-data');
+                    const text = input ? input.value.trim() : '';
+                    if (!text && !(imgData && imgData.value)) return; // 跳过空的选项
+                    // 构建选项对象：有图片时存 {text, image}，否则纯文本
+                    const opt = (imgData && imgData.value)
+                        ? { text: text, image: imgData.value }
+                        : text;
+                    options.push(opt);
+                    if (row.querySelector('.mark-correct.correct')) {
+                        correctIndices.push(options.length - 1);
                     }
                 });
 
