@@ -304,7 +304,9 @@
                     ApiClient.setToken(data.token);
                     Utils.saveLocal('current_user', data.user);
 
-                    if (data.user.role === 'admin') {
+                    // 超级管理员/管理员/阅卷员 均进入管理后台；其他角色进入考试界面
+                    const adminRoles = ['super_admin', 'admin', 'reviewer'];
+                    if (adminRoles.includes(data.user.role)) {
                         Utils.toast('登录成功，正在进入管理后台...', 'success');
                         setTimeout(() => window.location.href = 'admin-dashboard.html', 800);
                     } else {

@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
     const { scope, status, search, page, pageSize } = req.query;
     let sql = 'SELECT * FROM exams WHERE 1=1';
     const params = [];
-    const isAdmin = req.user.role === 'admin' || req.user.role === 'super_admin';
+    const isAdmin = ['super_admin', 'admin', 'reviewer'].includes(req.user.role);
 
     if (!isAdmin) {
       sql += ' AND status IN (?, ?)';

@@ -182,7 +182,7 @@ router.get('/:id/details', async (req, res) => {
     if (!result) return res.status(404).json({ error: '结果不存在' });
 
     // 权限检查
-    const isAdmin = req.user.role === 'admin' || req.user.role === 'super_admin';
+    const isAdmin = ['super_admin', 'admin', 'reviewer'].includes(req.user.role);
     if (!isAdmin && result.username !== req.user.username) {
       return res.status(403).json({ error: '无权查看' });
     }

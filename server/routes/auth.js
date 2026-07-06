@@ -72,7 +72,7 @@ router.post('/login', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const db = getDb();
-    const isAdmin = req.user.role === 'admin' || req.user.role === 'super_admin';
+    const isAdmin = ['super_admin', 'admin', 'reviewer'].includes(req.user.role);
 
     let user;
     if (isAdmin) {
@@ -113,7 +113,7 @@ router.put('/password', authMiddleware, async (req, res) => {
     }
 
     const db = getDb();
-    const isAdmin = req.user.role === 'admin' || req.user.role === 'super_admin';
+    const isAdmin = ['super_admin', 'admin', 'reviewer'].includes(req.user.role);
     const table = isAdmin ? 'admins' : 'users';
     const user = await db.get(`SELECT * FROM ${table} WHERE id = ?`, req.user.id);
 
