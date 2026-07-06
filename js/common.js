@@ -1074,7 +1074,7 @@ const AccountManager = {
             if (mockAdmin.status !== 'active') return { success: false, msg: '该管理员账号已被禁用' };
             // 迁移到 AdminManager
             AdminManager.addAdmin({ ...mockAdmin, role: 'super_admin' });
-            return { success: true, user: { ...mockAdmin, role: 'admin', employee_id: 'ADMIN001' } };
+            return { success: true, user: { ...mockAdmin, role: mockAdmin.role || 'super_admin', employee_id: 'ADMIN001' } };
         }
 
         // 检查考试人员
@@ -1779,7 +1779,7 @@ const AdminManager = {
         const admin = admins.find(a => a.username === username);
         if (admin && admin.password === password) {
             if (admin.status !== 'active') return { success: false, msg: '该管理员账号已被禁用' };
-            return { success: true, user: { ...admin, role: 'admin', employee_id: 'ADMIN' + admin.id } };
+            return { success: true, user: { ...admin, role: admin.role || 'admin', employee_id: 'ADMIN' + admin.id } };
         }
         return null;
     },
@@ -1851,6 +1851,177 @@ const AdminManager = {
             reviewer: '阅卷员'
         };
         return map[role] || role;
+    }
+};
+
+// ==================== 权限守卫（AdminGuard） ====================
+// 负责在所有管理页面中强制执行权限检查
+// 依赖：AdminManager、当前登录用户（localStorage current_user）
+
+const AdminGuard = {
+    // 获取当前登录的管理员信息
+    getCurrentAdmin() {
+        const user = Utils.getLocal('current_user');
+        if (!user) return null;
+        // 员工用户不受 AdminGuard 控制
+        if (user.role === 'employee') return null;
+        return user;
+    },
+
+    // 从 AdminManager 获取当前管理员的完整信息（含 modules、project_ids）
+    _getAdminRecord() {
+        const current = this.getCurrentAdmin();
+        if (!current) return null;
+        return AdminManager.getAdmins().find(a => a.id === current.id) || null;
+    },
+
+    // 检查当前管理员是否有指定角色
+    hasRole(role) {
+        const current = this.getCurrentAdmin();
+        if (!current) return false;
+        return current.role === role;
+    },
+
+    // 是否超级管理员
+    isSuperAdmin() {
+        return this.hasRole('super_admin');
+    },
+
+    // 是否阅卷员
+    isReviewer() {
+        return this.hasRole('reviewer');
+    },
+
+    // 是否普通管理员
+    isAdmin() {
+        return this.hasRole('admin');
+    },
+
+    // 是否可以编辑（超级管理员和管理员可以，阅卷员不可以）
+    canEdit() {
+        const current = this.getCurrentAdmin();
+        if (!current) return false;
+        return current.role === 'super_admin' || current.role === 'admin';
+    },
+
+    // 检查是否可访问指定模块
+    canAccessModule(moduleKey) {
+        const current = this.getCurrentAdmin();
+        if (!current) return false;
+        // 超级管理员可访问所有模块
+        if (current.role === 'super_admin') return true;
+        // 从数据库中获取完整的 modules 权限
+        const admin = this._getAdminRecord();
+        if (!admin || !admin.modules) return false;
+        return admin.modules.includes(moduleKey);
+    },
+
+    // 获取当前管理员可见的项目ID列表
+    getVisibleProjectIds() {
+        const current = this.getCurrentAdmin();
+        if (!current) return [];
+        // 超级管理员看所有项目
+        if (current.role === 'super_admin') {
+            return ProjectManager.getProjects().filter(p => p.status !== 'deleted').map(p => p.id);
+        }
+        const admin = this._getAdminRecord();
+        if (!admin || !admin.project_ids) return [];
+        return admin.project_ids;
+    },
+
+    // 获取当前管理员可见的项目列表
+    getVisibleProjects() {
+        const ids = this.getVisibleProjectIds();
+        if (ids.length === 0) return [];
+        return ProjectManager.getProjects().filter(p => p.status !== 'deleted' && ids.includes(p.id));
+    },
+
+    // 根据可见项目过滤数据（适用于考试列表、题目列表等）
+    // data: 数据数组; projectIdField: 数据中的项目ID字段名（默认 'project_id'）
+    filterByProjects(data, projectIdField) {
+        const current = this.getCurrentAdmin();
+        if (!current) return data;
+        // 超级管理员看所有
+        if (current.role === 'super_admin') return data;
+        const visibleIds = this.getVisibleProjectIds();
+        if (visibleIds.length === 0) {
+            // 没有分配任何项目，只能看公共数据
+            return data.filter(item => {
+                const pid = item[projectIdField || 'project_id'];
+                return !pid || pid === null;
+            });
+        }
+        return data.filter(item => {
+            const pid = item[projectIdField || 'project_id'];
+            // 公共数据（无项目ID）始终可见
+            if (!pid || pid === null) return true;
+            return visibleIds.includes(parseInt(pid));
+        });
+    },
+
+    // 强制执行模块权限检查，无权限时渲染权限不足页面
+    // moduleKey: 模块标识（如 'dashboard', 'questions', 'exams'）
+    // mainSelector: 主内容区域选择器（如 '#main-content'），用于替换内容
+    enforceModule(moduleKey, mainSelector) {
+        if (this.canAccessModule(moduleKey)) return true;
+
+        // 渲染权限不足页面
+        const container = document.querySelector(mainSelector || 'main') || document.querySelector('.main-content') || document.body;
+        if (container) {
+            const current = this.getCurrentAdmin();
+            const roleName = current ? AdminManager.roleText(current.role) : '当前角色';
+            const moduleNames = {
+                dashboard: '数据看板', questions: '题库管理', exams: '考试管理',
+                statistics: '成绩统计', users: '人员管理', settings: '系统设置', review: '阅卷中心'
+            };
+            const moduleName = moduleNames[moduleKey] || moduleKey;
+
+            container.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:center;min-height:60vh;flex-direction:column;gap:16px;">
+                    <div style="font-size:64px;opacity:0.3;">🔒</div>
+                    <h2 style="font-size:22px;color:#374151;margin:0;">权限不足</h2>
+                    <p style="font-size:15px;color:#9ca3af;max-width:420px;text-align:center;line-height:1.6;">
+                        您的角色为 <strong>${Utils.escapeHtml(roleName)}</strong>，暂无 <strong>${Utils.escapeHtml(moduleName)}</strong> 的访问权限。<br>
+                        如需开通此模块，请联系超级管理员。
+                    </p>
+                    <button onclick="location.href='admin-dashboard.html'" style="padding:10px 24px;background:#4f46e5;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;">
+                        返回数据看板
+                    </button>
+                </div>
+            `;
+        }
+        return false;
+    },
+
+    // 在页面加载时初始化侧边栏权限（隐藏无权限模块）
+    initSidebar() {
+        const current = this.getCurrentAdmin();
+        if (!current) return;
+        // 超级管理员保持所有菜单可见
+        if (current.role === 'super_admin') return;
+
+        const admin = this._getAdminRecord();
+        if (!admin || !admin.modules) return;
+
+        // 模块与菜单项的映射（菜单项 data-module 属性需与 modules 数组中的 key 一致）
+        const menuItems = document.querySelectorAll('[data-module]');
+        menuItems.forEach(item => {
+            const moduleKey = item.getAttribute('data-module');
+            if (moduleKey && !admin.modules.includes(moduleKey)) {
+                item.style.display = 'none';
+            }
+        });
+    },
+
+    // 在编辑/删除按钮渲染时隐藏无权限按钮（用于阅卷员等只读角色）
+    // 返回 CSS class 或 display 样式来控制按钮可见性
+    getEditButtonStyle() {
+        return this.canEdit() ? '' : 'display:none;';
+    },
+
+    // 判断是否需要隐藏编辑相关UI
+    shouldHideEditUI() {
+        return !this.canEdit();
     }
 };
 

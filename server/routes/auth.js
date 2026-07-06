@@ -28,11 +28,13 @@ router.post('/login', async (req, res) => {
       if (!bcrypt.compareSync(password, user.password_hash)) {
         return res.status(401).json({ error: '密码错误' });
       }
+      // 使用数据库中存储的实际角色，不再硬编码
+      const actualRole = user.role || 'admin';
       return res.json({
-        token: signToken({ id: user.id, username: user.username, real_name: user.real_name, role: 'admin', department: user.department }),
+        token: signToken({ id: user.id, username: user.username, real_name: user.real_name, role: actualRole, department: user.department }),
         user: {
           id: user.id, username: user.username, real_name: user.real_name,
-          role: 'admin', department: user.department, employee_id: 'ADMIN' + user.id,
+          role: actualRole, department: user.department, employee_id: 'ADMIN' + user.id,
           project_ids: JSON.parse(user.project_ids || '[]'),
           modules: JSON.parse(user.modules || '[]')
         }
@@ -76,7 +78,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     if (isAdmin) {
       user = await db.get('SELECT * FROM admins WHERE id = ?', req.user.id);
       if (user) {
-        user.role = 'admin';
+        // 保留数据库中的实际角色（不再硬编码为 'admin'）
         user.employee_id = 'ADMIN' + user.id;
         user.project_ids = JSON.parse(user.project_ids || '[]');
         user.modules = JSON.parse(user.modules || '[]');

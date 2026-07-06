@@ -432,14 +432,14 @@
 
             <nav class="sidebar-nav">
                 <div class="sidebar-section-label">主要功能</div>
-                <a href="admin-dashboard.html" class="sidebar-link active">${ICONS.dashboard} 数据看板</a>
-                <a href="admin-questions.html" class="sidebar-link">${ICONS.question} 题库管理</a>
-                <a href="admin-exams.html" class="sidebar-link">${ICONS.exam} 考试管理</a>
-                <a href="admin-statistics.html" class="sidebar-link">${ICONS.chart} 成绩统计</a>
-                <a href="admin-users.html" class="sidebar-link">${ICONS.users} 人员管理</a>
-                <a href="admin-review.html" class="sidebar-link">${ICONS.fileCheck} 阅卷中心</a>
+                <a href="admin-dashboard.html" class="sidebar-link active" data-module="dashboard">${ICONS.dashboard} 数据看板</a>
+                <a href="admin-questions.html" class="sidebar-link" data-module="questions">${ICONS.question} 题库管理</a>
+                <a href="admin-exams.html" class="sidebar-link" data-module="exams">${ICONS.exam} 考试管理</a>
+                <a href="admin-statistics.html" class="sidebar-link" data-module="statistics">${ICONS.chart} 成绩统计</a>
+                <a href="admin-users.html" class="sidebar-link" data-module="users">${ICONS.users} 人员管理</a>
+                <a href="admin-review.html" class="sidebar-link" data-module="review">${ICONS.fileCheck} 阅卷中心</a>
                 <div class="sidebar-section-label">系统</div>
-                <a href="admin-settings.html" class="sidebar-link">${ICONS.settings} 系统设置</a>
+                <a href="admin-settings.html" class="sidebar-link" data-module="settings">${ICONS.settings} 系统设置</a>
             </nav>
 
             <div class="sidebar-footer">
@@ -593,9 +593,29 @@
     <script src="js/api.js"></script>
     <script src="js/bridge.js"></script>
     <script>
-        (function(){var u=Utils.getLocal('current_user');if(u&&u.real_name){document.getElementById('topbar-name').textContent=u.real_name;document.getElementById('topbar-avatar').textContent=u.real_name.charAt(0);var r=u.department?u.department+' · ':'',s=u.role==='admin'?'管理员':(u.role||'');document.getElementById('topbar-role').textContent=r+s;}})();
+        (function(){var u=Utils.getLocal('current_user');if(u&&u.real_name){document.getElementById('topbar-name').textContent=u.real_name;document.getElementById('topbar-avatar').textContent=u.real_name.charAt(0);var r=u.department?u.department+' · ':'',s=AdminManager.roleText(u.role||'');document.getElementById('topbar-role').textContent=r+s;}})();
     </script>
     <script>
+        // ========== 权限守卫 ==========
+        (function() {
+            AdminGuard.initSidebar();
+            if (!AdminGuard.enforceModule('dashboard', '.main-content')) return;
+        // ========== 数据同步事件监听（跨设备数据同步） ==========
+        (function() {
+            var _synced = {};
+            ['admin_exams', 'question_bank'].forEach(function(k) {
+                window.addEventListener("datasync:refresh", function(e) {
+                    if (e.detail === k && !_synced[k]) {
+                        _synced[k] = true;
+                        renderDashboardStats();
+                    }
+                });
+            });
+        })();
+        // ========== 数据同步事件监听结束 ==========
+
+
+        })();
         // 动态计算看板统计数据
         function renderDashboardStats() {
             // 题库总数

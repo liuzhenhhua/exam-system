@@ -43,8 +43,14 @@ window.ApiClient = (function () {
       options.body = JSON.stringify(body);
     }
 
+    // 请求超时：交卷等操作可能较慢，给30秒
+    const controller = new AbortController();
+    options.signal = controller.signal;
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     try {
       const resp = await fetch(API_BASE + path, options);
+      clearTimeout(timeoutId);
       if (!resp.ok) {
         const data = await resp.json().catch(() => ({}));
         if (resp.status === 401 && retryOnAuth && token) {
@@ -61,6 +67,7 @@ window.ApiClient = (function () {
 
       return await resp.json();
     } catch (err) {
+      clearTimeout(timeoutId);
       if (err.message === 'unauthorized') {
         // Token 过期，跳转登录
         if (window.location.pathname !== '/' && !window.location.pathname.endsWith('index.html')) {
@@ -72,6 +79,10 @@ window.ApiClient = (function () {
       if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
         _backendAvailable = false;
         throw new Error('backend-unavailable');
+      }
+      // 请求超时
+      if (err.name === 'AbortError') {
+        throw new Error('请求超时，请检查网络后重试');
       }
       throw err;
     }

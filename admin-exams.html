@@ -129,14 +129,14 @@
             </div>
             <nav class="sidebar-nav">
                 <div class="sidebar-section-label">主要功能</div>
-                <a href="admin-dashboard.html" class="sidebar-link">${ICONS.dashboard} 数据看板</a>
-                <a href="admin-questions.html" class="sidebar-link">${ICONS.question} 题库管理</a>
-                <a href="admin-exams.html" class="sidebar-link active">${ICONS.exam} 考试管理</a>
-                <a href="admin-statistics.html" class="sidebar-link">${ICONS.chart} 成绩统计</a>
-                <a href="admin-users.html" class="sidebar-link">${ICONS.users} 人员管理</a>
-                <a href="admin-review.html" class="sidebar-link">${ICONS.fileCheck} 阅卷中心</a>
+                <a href="admin-dashboard.html" class="sidebar-link" data-module="dashboard">${ICONS.dashboard} 数据看板</a>
+                <a href="admin-questions.html" class="sidebar-link" data-module="questions">${ICONS.question} 题库管理</a>
+                <a href="admin-exams.html" class="sidebar-link active" data-module="exams">${ICONS.exam} 考试管理</a>
+                <a href="admin-statistics.html" class="sidebar-link" data-module="statistics">${ICONS.chart} 成绩统计</a>
+                <a href="admin-users.html" class="sidebar-link" data-module="users">${ICONS.users} 人员管理</a>
+                <a href="admin-review.html" class="sidebar-link" data-module="review">${ICONS.fileCheck} 阅卷中心</a>
                 <div class="sidebar-section-label">系统</div>
-                <a href="admin-settings.html" class="sidebar-link">${ICONS.settings} 系统设置</a>
+                <a href="admin-settings.html" class="sidebar-link" data-module="settings">${ICONS.settings} 系统设置</a>
             </nav>
             <div class="sidebar-footer">
                 <a href="index.html" class="sidebar-link" style="color:#ef4444;">${ICONS.logout} 退出登录</a>
@@ -215,7 +215,7 @@
     <script src="js/api.js"></script>
     <script src="js/bridge.js"></script>
     <script>
-        (function(){var u=Utils.getLocal('current_user');if(u&&u.real_name){document.getElementById('topbar-name').textContent=u.real_name;document.getElementById('topbar-avatar').textContent=u.real_name.charAt(0);var r=u.department?u.department+' · ':'',s=u.role==='admin'?'管理员':(u.role||'');document.getElementById('topbar-role').textContent=r+s;}})();
+        (function(){var u=Utils.getLocal('current_user');if(u&&u.real_name){document.getElementById('topbar-name').textContent=u.real_name;document.getElementById('topbar-avatar').textContent=u.real_name.charAt(0);var r=u.department?u.department+' · ':'',s=AdminManager.roleText(u.role||'');document.getElementById('topbar-role').textContent=r+s;}})();
     </script>
     <script>
         let currentStep = 1;
@@ -356,14 +356,16 @@
             const result = ExamSystem.ExamManager.getExamsPaginated(page, pageSize, filters);
             if (page >= 1 && page <= result.totalPages) {
                 currentPage = page;
-                renderExams();
+        
+        renderExams();
             }
         }
 
         function changePageSize() {
             pageSize = parseInt(document.getElementById('page-size-select').value) || 10;
             currentPage = 1;
-            renderExams();
+    
+        renderExams();
         }
 
         function updateExamScopeCounts() {
@@ -389,7 +391,8 @@
                     tab.style.borderColor = '#e5e7eb';
                 }
             });
-            renderExams();
+    
+        renderExams();
         }
 
         function showCreateExamModal() {
@@ -833,7 +836,8 @@
             });
             document.querySelector('.modal-overlay').remove();
             Utils.toast('考试已保存为草稿', 'info');
-            renderExams();
+    
+        renderExams();
         }
 
         function publishNewExam() {
@@ -856,7 +860,8 @@
             });
             document.querySelector('.modal-overlay').remove();
             Utils.toast(`考试已发布！已通知 ${participants} 位参与人员`, 'success');
-            renderExams();
+    
+        renderExams();
         }
 
         function collectRules() {
@@ -891,7 +896,8 @@
                 }
                 ExamSystem.ExamManager.updateExam(id, { status: 'published' });
                 Utils.toast('考试已发布！题目已从题库抽取并锁定。', 'success');
-                renderExams();
+        
+        renderExams();
             }, '发布考试');
         }
 
@@ -908,7 +914,8 @@
                 () => {
                     ExamSystem.ExamManager.regenerateSnapshot(examId, exam.rules, exam.scope, exam.project_id);
                     Utils.toast('已从题库重新抽取题目，快照已更新', 'success');
-                    renderExams();
+            
+        renderExams();
                 },
                 '重新组卷确认'
             );
@@ -918,10 +925,32 @@
             Utils.confirm('确定要删除此考试吗？删除后无法恢复。', async () => {
                 await ExamSystem.ExamManager.deleteExam(id);
                 Utils.toast('考试已删除', 'success');
-                renderExams();
+        
+        renderExams();
             }, '删除确认');
         }
 
+
+        // ========== 权限守卫 ==========
+        (function() {
+            AdminGuard.initSidebar();
+            if (!AdminGuard.enforceModule('exams', '.main-content')) return;
+        // ========== 数据同步事件监听（跨设备数据同步） ==========
+        (function() {
+            var _synced = {};
+            ['admin_exams'].forEach(function(k) {
+                window.addEventListener("datasync:refresh", function(e) {
+                    if (e.detail === k && !_synced[k]) {
+                        _synced[k] = true;
+                        renderExams();
+                    }
+                });
+            });
+        })();
+        // ========== 数据同步事件监听结束 ==========
+
+
+        })();
         renderExams();
     </script>
 </body>

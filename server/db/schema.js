@@ -163,6 +163,9 @@ CREATE INDEX IF NOT EXISTS idx_results_submitted ON results(submitted_at);
 CREATE INDEX IF NOT EXISTS idx_result_details_rid_qidx ON result_details(result_id, question_index);
 CREATE INDEX IF NOT EXISTS idx_result_details_result_id ON result_details(result_id);
 CREATE INDEX IF NOT EXISTS idx_exam_questions_exam_id ON exam_questions(exam_id);
+
+-- 防止并发交卷重复提交（TOCTOU 竞态条件）
+CREATE UNIQUE INDEX IF NOT EXISTS idx_results_exam_user_unique ON results(exam_id, username);
 `;
 
 const PG_SCHEMA = `
@@ -318,6 +321,9 @@ CREATE INDEX IF NOT EXISTS idx_results_submitted ON results(submitted_at);
 CREATE INDEX IF NOT EXISTS idx_result_details_rid_qidx ON result_details(result_id, question_index);
 CREATE INDEX IF NOT EXISTS idx_result_details_result_id ON result_details(result_id);
 CREATE INDEX IF NOT EXISTS idx_exam_questions_exam_id ON exam_questions(exam_id);
+
+-- 防止并发交卷重复提交（TOCTOU 竞态条件）
+CREATE UNIQUE INDEX IF NOT EXISTS idx_results_exam_user_unique ON results(exam_id, username);
 `;
 
 async function initSchema(db, dbType) {

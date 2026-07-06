@@ -11,6 +11,15 @@
   // 全局刷新标记：防止重复触发
   let _refreshing = false;
 
+  // 通知页面数据已就绪（用于跨设备同步场景）
+  function _notifyDataReady(eventName) {
+    if (typeof window !== 'undefined' && document.readyState === 'complete') {
+      requestAnimationFrame(() => {
+        window.dispatchEvent(new CustomEvent('datasync:refresh', { detail: eventName }));
+      });
+    }
+  }
+
   // 通用：异步从后端拉取数据并刷新 localStorage，然后触发页面重新渲染
   async function syncFromBackend(key, apiCall, renderFn) {
     if (_refreshing) return;
@@ -85,6 +94,7 @@
                   project_ids: u.project_ids || [],
                 }));
                 Utils.saveLocal('examinee_accounts', users);
+                if (!stored || !stored.length) _notifyDataReady('examinee_accounts');
               }
             }).catch(() => {});
           }
@@ -173,7 +183,10 @@
         ApiClient.useBackend().then(available => {
           if (available && !_mutationLock) {
             ApiClient.getExams({ pageSize: 500 }).then(data => {
-              if (data.exams && !_mutationLock) Utils.saveLocal('admin_exams', data.exams);
+              if (data.exams && !_mutationLock) {
+                Utils.saveLocal('admin_exams', data.exams);
+                if (!stored || !stored.length) _notifyDataReady('admin_exams');
+              }
             }).catch(() => {});
           }
         });
@@ -243,7 +256,10 @@
         ApiClient.useBackend().then(available => {
           if (available && !_mutationLock) {
             ApiClient.getQuestions({ pageSize: 2000 }).then(data => {
-              if (data.questions && !_mutationLock) Utils.saveLocal('question_bank', data.questions);
+              if (data.questions && !_mutationLock) {
+                Utils.saveLocal('question_bank', data.questions);
+                if (!stored || !stored.length) _notifyDataReady('question_bank');
+              }
             }).catch(() => {});
           }
         });
@@ -498,7 +514,10 @@
         ApiClient.useBackend().then(available => {
           if (available && !_mutationLock) {
             ApiClient.getAdmins().then(data => {
-              if (data.admins && !_mutationLock) Utils.saveLocal('admin_accounts', data.admins);
+              if (data.admins && !_mutationLock) {
+                Utils.saveLocal('admin_accounts', data.admins);
+                if (!stored || !stored.length) _notifyDataReady('admin_accounts');
+              }
             }).catch(() => {});
           }
         });

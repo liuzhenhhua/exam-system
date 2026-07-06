@@ -3,6 +3,7 @@
  * 全部改为 async 以兼容 PostgreSQL
  */
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { getDb } = require('../db/database');
 const { authMiddleware, adminOnly } = require('../middleware/auth');
 const { beijingNow, beijingDate } = require('../utils/time');
@@ -10,8 +11,17 @@ const { beijingNow, beijingDate } = require('../utils/time');
 const router = express.Router();
 router.use(authMiddleware);
 
+// 交卷接口限流：仅对 POST / 生效，防止50人并发时重复提交风暴
+const submitLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: '交卷请求过于频繁，请稍后重试' }
+});
+
 // POST /api/results — 考生交卷
-router.post('/', async (req, res) => {
+router.post('/', submitLimiter, async (req, res) => {
   try {
     const db = getDb();
     const { examId, username, real_name, department, results: answerResults, passScore, totalScore, timeSpent, manualReviewCount } = req.body;
@@ -19,7 +29,7 @@ router.post('/', async (req, res) => {
     if (!examId || !username) return res.status(400).json({ error: '缺少必要参数' });
     if (!Array.isArray(answerResults)) return res.status(400).json({ error: '缺少答题结果数据' });
 
-    // 检查是否已交卷
+    // 检查是否已交卷（应用层检查 + 数据库 UNIQUE 约束双重防护）
     const existing = await db.get('SELECT id FROM results WHERE exam_id = ? AND username = ?', examId, username);
     if (existing) return res.status(400).json({ error: '您已提交过该考试' });
 
@@ -109,6 +119,10 @@ router.post('/', async (req, res) => {
       }
     });
   } catch (err) {
+    // 处理 UNIQUE 约束冲突（并发交卷重复提交）
+    if (err && (err.code === '23505' || err.message?.includes('UNIQUE') || err.message?.includes('unique'))) {
+      return res.status(400).json({ error: '您已提交过该考试' });
+    }
     console.error('[results/submit] 错误:', err);
     res.status(500).json({ error: '提交考试结果失败' });
   }

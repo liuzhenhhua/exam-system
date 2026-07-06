@@ -40,22 +40,13 @@ async function main() {
     }
   });
 
-  // 通用速率限制：50人并发场景下防止雪崩
+  // 通用速率限制：1000人并发场景下防止雪崩
   const apiLimiter = rateLimit({
     windowMs: 60 * 1000,    // 1分钟窗口
-    max: 300,                // 每 IP 每分钟 300 次（50用户可同时交卷）
+    max: 1000,               // 每 IP 每分钟 1000 次（支持1000人同IP并发登录+50人考试）
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: '请求过于频繁，请稍后重试' }
-  });
-
-  // 交卷接口（写操作）更严格
-  const submitLimiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 100,                // 每 IP 每分钟 100 次交卷（足够50人）
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: '交卷请求过于频繁，请稍后重试' }
   });
 
   // API 路由（按需加载，确保数据库已初始化）
@@ -64,7 +55,7 @@ async function main() {
   app.use('/api/users',     require('./routes/users'));
   app.use('/api/exams',     require('./routes/exams'));
   app.use('/api/questions', require('./routes/questions'));
-  app.use('/api/results',  submitLimiter, require('./routes/results'));
+  app.use('/api/results',   require('./routes/results'));
   app.use('/api/departments', require('./routes/departments'));
   app.use('/api',           require('./routes/misc'));
 

@@ -38,7 +38,17 @@ class SqliteAdapter {
 
   async run(sql, ...params) {
     const p = this._normalizeParams(params.length === 1 ? params[0] : params);
-    return this._inner.prepare(sql).run(...p);
+    const result = this._inner.prepare(sql).run(...p);
+    // SQLite 模式下获取最后插入的 ID（Stmt.run() 不返回此值）
+    if (sql.trim().match(/^INSERT/i)) {
+      const row = this._inner.prepare('SELECT last_insert_rowid() as id').get();
+      result.lastInsertRowid = row ? row.id : null;
+    }
+    // 写操作后立即持久化，防止并发场景下数据丢失
+    if (sql.trim().match(/^(INSERT|UPDATE|DELETE|REPLACE)/i)) {
+      this._inner._save();
+    }
+    return result;
   }
 
   async exec(sql) {

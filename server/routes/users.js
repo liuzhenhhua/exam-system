@@ -85,6 +85,7 @@ router.post('/batch', adminOnly, async (req, res) => {
 
     const date = beijingDate();
     const errors = [];
+    let count = 0;
 
     await db.transaction(async (tx) => {
       for (const u of userList) {
@@ -97,10 +98,11 @@ router.post('/batch', adminOnly, async (req, res) => {
           errors.push(`工号 ${u.username} 已存在`);
           continue;
         }
+        const hash = await bcrypt.hash(u.password, 10);
         await tx.run(`
           INSERT INTO users (username, password_hash, real_name, department_id, department, position, status, project_ids, created)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `, u.username, bcrypt.hashSync(u.password, 10), u.real_name || '', u.department_id || null,
+        `, u.username, hash, u.real_name || '', u.department_id || null,
           u.department || '', u.position || '', u.status || 'active', JSON.stringify(u.project_ids || []), u.created || date);
         count++;
       }

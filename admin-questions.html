@@ -207,14 +207,14 @@
             </div>
             <nav class="sidebar-nav">
                 <div class="sidebar-section-label">主要功能</div>
-                <a href="admin-dashboard.html" class="sidebar-link">${ICONS.dashboard} 数据看板</a>
-                <a href="admin-questions.html" class="sidebar-link active">${ICONS.question} 题库管理</a>
-                <a href="admin-exams.html" class="sidebar-link">${ICONS.exam} 考试管理</a>
-                <a href="admin-statistics.html" class="sidebar-link">${ICONS.chart} 成绩统计</a>
-                <a href="admin-users.html" class="sidebar-link">${ICONS.users} 人员管理</a>
-                <a href="admin-review.html" class="sidebar-link">${ICONS.fileCheck} 阅卷中心</a>
+                <a href="admin-dashboard.html" class="sidebar-link" data-module="dashboard">${ICONS.dashboard} 数据看板</a>
+                <a href="admin-questions.html" class="sidebar-link active" data-module="questions">${ICONS.question} 题库管理</a>
+                <a href="admin-exams.html" class="sidebar-link" data-module="exams">${ICONS.exam} 考试管理</a>
+                <a href="admin-statistics.html" class="sidebar-link" data-module="statistics">${ICONS.chart} 成绩统计</a>
+                <a href="admin-users.html" class="sidebar-link" data-module="users">${ICONS.users} 人员管理</a>
+                <a href="admin-review.html" class="sidebar-link" data-module="review">${ICONS.fileCheck} 阅卷中心</a>
                 <div class="sidebar-section-label">系统</div>
-                <a href="admin-settings.html" class="sidebar-link">${ICONS.settings} 系统设置</a>
+                <a href="admin-settings.html" class="sidebar-link" data-module="settings">${ICONS.settings} 系统设置</a>
             </nav>
             <div class="sidebar-footer">
                 <a href="index.html" class="sidebar-link" style="color:#ef4444;">${ICONS.logout} 退出登录</a>
@@ -333,7 +333,7 @@
     <script src="js/api.js"></script>
     <script src="js/bridge.js"></script>
     <script>
-        (function(){var u=Utils.getLocal('current_user');if(u&&u.real_name){document.getElementById('topbar-name').textContent=u.real_name;document.getElementById('topbar-avatar').textContent=u.real_name.charAt(0);var r=u.department?u.department+' · ':'',s=u.role==='admin'?'管理员':(u.role||'');document.getElementById('topbar-role').textContent=r+s;}})();
+        (function(){var u=Utils.getLocal('current_user');if(u&&u.real_name){document.getElementById('topbar-name').textContent=u.real_name;document.getElementById('topbar-avatar').textContent=u.real_name.charAt(0);var r=u.department?u.department+' · ':'',s=AdminManager.roleText(u.role||'');document.getElementById('topbar-role').textContent=r+s;}})();
     </script>
     <script>
         let currentScope = 'all';
@@ -1721,6 +1721,7 @@
         }
 
         // 初始化：从后端同步数据后渲染
+
         async function initPage() {
             if (await ApiClient.useBackend()) {
                 try {
@@ -1734,6 +1735,26 @@
             renderProjectCards();
         }
 
+        // ========== 权限守卫 ==========
+        (function() {
+            AdminGuard.initSidebar();
+            if (!AdminGuard.enforceModule('questions', '.main-content')) return;
+        // ========== 数据同步事件监听（跨设备数据同步） ==========
+        (function() {
+            var _synced = {};
+            ['question_bank'].forEach(function(k) {
+                window.addEventListener("datasync:refresh", function(e) {
+                    if (e.detail === k && !_synced[k]) {
+                        _synced[k] = true;
+                        initPage();
+                    }
+                });
+            });
+        })();
+        // ========== 数据同步事件监听结束 ==========
+
+
+        })();
         initPage();
     </script>
 </body>

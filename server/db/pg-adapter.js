@@ -14,7 +14,7 @@ numericTypes.forEach(oid => {
 
 class PgAdapter {
   constructor(connectionString) {
-    this._pool = new Pool({ connectionString, max: 25, idleTimeoutMillis: 30000, connectionTimeoutMillis: 10000 });
+    this._pool = new Pool({ connectionString, max: 30, idleTimeoutMillis: 30000, connectionTimeoutMillis: 10000 });
     this._pool.on('error', (err) => {
       console.error('[PostgreSQL] 连接池错误:', err.message);
     });
