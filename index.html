@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>企业培训考试系统 - 登录</title>
+    <title>鲸鱼培训考试系统 - 登录</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
@@ -47,17 +47,22 @@
             margin-bottom: 36px;
         }
         .logo-icon {
-            width: 64px;
-            height: 64px;
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
-            border-radius: 16px;
+            width: 80px;
+            height: 80px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             margin-bottom: 16px;
-            box-shadow: 0 8px 24px rgba(79,70,229,0.3);
+            border-radius: 50%;
+            overflow: hidden;
+            background: #fff;
+            box-shadow: 0 8px 24px rgba(79,70,229,0.15);
         }
-        .logo-icon svg { color: #fff; }
+        .logo-icon img {
+            width: 72px;
+            height: 72px;
+            object-fit: contain;
+        }
         .system-title {
             font-size: 22px;
             font-weight: 700;
@@ -168,13 +173,10 @@
     <div class="login-card">
         <div class="logo-area">
             <div class="logo-icon">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-                    <path d="M6 12v5c3 3 9 3 12 0v-5"/>
-                </svg>
+                <img src="assets/logo-whale.png" alt="鲸鱼培训考试系统">
             </div>
-            <div class="system-title">企业培训考试系统</div>
-            <div class="system-subtitle">Enterprise Training & Exam Platform</div>
+            <div class="system-title">鲸鱼培训考试系统</div>
+            <div class="system-subtitle">Whale Training & Exam Platform</div>
         </div>
 
         <div class="error-msg" id="error-msg">

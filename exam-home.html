@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>考试首页 - 企业培训考试系统</title>
+    <title>考试首页 - 鲸鱼培训考试系统</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
@@ -32,12 +32,18 @@
         .nav-brand-icon {
             width: 36px;
             height: 36px;
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
-            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .nav-brand-icon img {
+            width: 24px;
+            height: 24px;
+            object-fit: contain;
         }
         .nav-right {
             display: flex;
@@ -324,12 +330,9 @@
     <nav class="top-nav">
         <div class="nav-brand">
             <div class="nav-brand-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-                    <path d="M6 12v5c3 3 9 3 12 0v-5"/>
-                </svg>
+                <img src="assets/logo-whale.png" alt="鲸鱼培训考试系统">
             </div>
-            <span>企业培训考试系统</span>
+            <span>鲸鱼培训考试系统</span>
         </div>
         <div class="nav-right">
             <div class="user-info">

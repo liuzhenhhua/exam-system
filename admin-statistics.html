@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>成绩统计 - 企业培训考试系统</title>
+    <title>成绩统计 - 鲸鱼培训考试系统</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
@@ -13,7 +13,8 @@
         .admin-layout { display: flex; min-height: 100vh; }
         .sidebar { width: 240px; background: #fff; border-right: 1px solid #e5e7eb; padding: 20px 16px; position: fixed; top: 0; bottom: 0; left: 0; z-index: 100; display: flex; flex-direction: column; }
         .sidebar-brand { display: flex; align-items: center; gap: 12px; padding: 8px 12px 24px; border-bottom: 1px solid #f3f4f6; margin-bottom: 16px; }
-        .sidebar-brand-icon { width: 36px; height: 36px; background: linear-gradient(135deg, #4f46e5, #7c3aed); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+        .sidebar-brand-icon { width: 36px; height: 36px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .sidebar-brand-icon img { width: 24px; height: 24px; object-fit: contain; }
         .sidebar-brand-text { font-size: 15px; font-weight: 700; color: #1f2937; }
         .sidebar-brand-sub { font-size: 11px; color: #9ca3af; }
         .sidebar-nav { flex: 1; display: flex; flex-direction: column; gap: 4px; }
@@ -105,10 +106,10 @@
         <aside class="sidebar">
             <div class="sidebar-brand">
                 <div class="sidebar-brand-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                    <img src="assets/logo-whale.png" alt="鲸鱼培训考试系统" style="width:24px;height:24px;object-fit:contain;">
                 </div>
                 <div>
-                    <div class="sidebar-brand-text">考试系统</div>
+                    <div class="sidebar-brand-text">鲸鱼培训</div>
                     <div class="sidebar-brand-sub">管理后台</div>
                 </div>
             </div>
