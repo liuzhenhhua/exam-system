@@ -384,7 +384,11 @@
     <script src="js/api.js"></script>
     <script src="js/bridge.js"></script>
     <script>
-        const user = Utils.getLocal('current_user') || MOCK_DATA.currentUser;
+        const user = Utils.getLocal('current_user');
+        // 未登录时跳转登录页，不回退到 MOCK_DATA
+        if (!user || !user.username) {
+            window.location.href = 'index.html';
+        }
 
         // 获取当前用户参与的项目
         const examineeAccount = ExamSystem.AccountManager.getExamineeAccounts().find(a => a.username === user.username);
@@ -403,6 +407,7 @@
 
         function logout() {
             Utils.confirm('确定要退出登录吗？', () => {
+                if (window.ApiClient) ApiClient.clearAuth();
                 localStorage.removeItem('current_user');
                 window.location.href = PAGES.login;
             });

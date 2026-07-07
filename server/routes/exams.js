@@ -88,7 +88,12 @@ router.post('/', adminOnly, async (req, res) => {
 
     // 发布时立即生成题目快照
     if (exam.status === 'published' && exam.rules && exam.rules.length > 0) {
-      await generateSnapshot(db, examId, exam.rules, exam.scope, exam.project_id);
+      const snapshotResult = await generateSnapshot(db, examId, exam.rules, exam.scope, exam.project_id);
+      if (!snapshotResult.ok) {
+        // 快照生成失败（题库不足），将考试回退为草稿
+        await db.run('UPDATE exams SET status = ? WHERE id = ?', 'draft', examId);
+        return res.status(400).json({ error: snapshotResult.message });
+      }
     }
 
     res.json({ id: examId, title: exam.title });
@@ -133,7 +138,10 @@ router.put('/:id', adminOnly, async (req, res) => {
     const newStatus = updates.status || exam.status;
     const newRules = updates.rules || JSON.parse(exam.rules || '[]');
     if (newStatus === 'published' && newRules.length > 0) {
-      await generateSnapshot(db, id, newRules, exam.scope, exam.project_id);
+      const snapshotResult = await generateSnapshot(db, id, newRules, exam.scope, exam.project_id);
+      if (!snapshotResult.ok) {
+        return res.status(400).json({ error: snapshotResult.message });
+      }
     }
 
     res.json({ success: true });
@@ -147,7 +155,12 @@ router.put('/:id', adminOnly, async (req, res) => {
 router.delete('/:id', adminOnly, async (req, res) => {
   try {
     const db = getDb();
-    await db.run('DELETE FROM exams WHERE id = ?', req.params.id);
+    const id = req.params.id;
+    // 级联清理：删除考试关联的题目快照、成绩和答题详情
+    await db.run('DELETE FROM result_details WHERE result_id IN (SELECT id FROM results WHERE exam_id = ?)', id);
+    await db.run('DELETE FROM results WHERE exam_id = ?', id);
+    await db.run('DELETE FROM exam_questions WHERE exam_id = ?', id);
+    await db.run('DELETE FROM exams WHERE id = ?', id);
     res.json({ success: true });
   } catch (err) {
     console.error('[exams/delete] 错误:', err);
@@ -164,11 +177,17 @@ async function generateSnapshot(db, examId, rules, scope, projectId) {
     pool = await db.all("SELECT * FROM questions WHERE status != 'deleted' AND (scope = 'public' OR scope IS NULL)");
   }
 
+  // 题库为空
+  if (pool.length === 0) {
+    return { ok: false, message: '题库中没有可用题目，无法发布考试，请先添加题目' };
+  }
+
   // 清空旧快照
   await db.run('DELETE FROM exam_questions WHERE exam_id = ?', examId);
 
   let sortOrder = 0;
   const insertedIds = [];
+  const shortage = [];
 
   for (const rule of rules) {
     let candidates = pool.filter(q => {
@@ -178,13 +197,23 @@ async function generateSnapshot(db, examId, rules, scope, projectId) {
       return true;
     });
 
+    // 检查题量是否充足
+    const requested = parseInt(rule.count) || 0;
+    if (candidates.length < requested) {
+      const typeNames = { single: '单选题', multiple: '多选题', judge: '判断题', short: '简答题' };
+      const diffNames = { '': '不限难度', '1': '简单', '2': '中等', '3': '困难' };
+      const typeName = typeNames[rule.type] || rule.type;
+      const diffName = diffNames[rule.difficulty || ''] || rule.difficulty;
+      shortage.push(`${typeName}(${diffName})需要${requested}题，题库仅有${candidates.length}题`);
+    }
+
     // 随机抽取
     for (let i = candidates.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
     }
 
-    const selected = candidates.slice(0, rule.count);
+    const selected = candidates.slice(0, requested);
     for (const q of selected) {
       await db.run(`
         INSERT INTO exam_questions (exam_id, original_id, type, content, options, answer, analysis, difficulty, category, score, sort_order)
@@ -194,10 +223,19 @@ async function generateSnapshot(db, examId, rules, scope, projectId) {
     }
   }
 
-  // 更新考试题目数
-  if (insertedIds.length > 0) {
-    await db.run('UPDATE exams SET question_count = ? WHERE id = ?', insertedIds.length, examId);
+  // 题量不足，回滚已插入的快照
+  if (insertedIds.length === 0 || shortage.length > 0) {
+    await db.run('DELETE FROM exam_questions WHERE exam_id = ?', examId);
+    const msg = shortage.length > 0
+      ? '题库题量不足，无法生成试卷：' + shortage.join('；')
+      : '抽题规则与题库不匹配，无法生成试卷';
+    return { ok: false, message: msg };
   }
+
+  // 更新考试题目数
+  await db.run('UPDATE exams SET question_count = ? WHERE id = ?', insertedIds.length, examId);
+
+  return { ok: true, count: insertedIds.length };
 }
 
 module.exports = router;

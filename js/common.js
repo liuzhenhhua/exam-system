@@ -1963,6 +1963,13 @@ const AdminGuard = {
     // moduleKey: 模块标识（如 'dashboard', 'questions', 'exams'）
     // mainSelector: 主内容区域选择器（如 '#main-content'），用于替换内容
     enforceModule(moduleKey, mainSelector) {
+        // 未登录时跳转登录页，而非显示权限不足
+        const current = this.getCurrentAdmin();
+        if (!current) {
+            window.location.href = 'index.html';
+            return false;
+        }
+
         if (this.canAccessModule(moduleKey)) return true;
 
         // 渲染权限不足页面
@@ -2731,6 +2738,14 @@ const PAGES = {
     adminSettings: 'admin-settings.html',
     adminReview: 'admin-review.html'
 };
+
+// 统一退出登录：清除 token 和用户信息后跳转登录页
+function adminLogout() {
+    if (window.ApiClient) ApiClient.clearAuth();
+    localStorage.removeItem('current_user');
+    localStorage.removeItem('remembered_account');
+    window.location.href = PAGES.login;
+}
 
 // ==================== 图标 SVG ====================
 

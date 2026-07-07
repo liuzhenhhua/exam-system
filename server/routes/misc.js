@@ -125,7 +125,13 @@ router.put('/projects/:id', adminOnly, async (req, res) => {
 router.delete('/projects/:id', adminOnly, async (req, res) => {
   try {
     const db = getDb();
-    await db.run("UPDATE projects SET status = 'deleted' WHERE id = ?", req.params.id);
+    const id = req.params.id;
+    // 检查是否有活跃的考试关联此项目
+    const examCount = await db.get("SELECT COUNT(*) as count FROM exams WHERE project_id = ? AND status IN ('draft', 'published')", id);
+    if (Number(examCount.count) > 0) {
+      return res.status(400).json({ error: `该项目下仍有 ${examCount.count} 场未结束的考试，请先处理后再删除` });
+    }
+    await db.run("UPDATE projects SET status = 'deleted' WHERE id = ?", id);
     res.json({ success: true });
   } catch (err) {
     console.error('[projects/delete] 错误:', err);

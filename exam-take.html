@@ -440,7 +440,11 @@
     <script src="js/api.js"></script>
     <script src="js/bridge.js"></script>
     <script>
-        const exam = Utils.getLocal('current_exam') || MOCK_DATA.examList[0];
+        const exam = Utils.getLocal('current_exam');
+        // 未选择考试时跳回考试列表，不回退到 MOCK_DATA
+        if (!exam || !exam.id) {
+            window.location.href = 'exam-home.html';
+        }
 
         // 优先使用后端返回的题目快照（exam.questions）
         let questions = [];
@@ -466,17 +470,20 @@
                 );
             }
 
-            // 如果题库题目不足，补充 MOCK_DATA 中的题目作为兜底
+            // 题库为空时直接提示，不再回退到 MOCK_DATA
             if (poolQuestions.length === 0) {
-                if (exam.scope === 'project' && exam.project_id) {
-                    poolQuestions = MOCK_DATA.examQuestions.filter(q =>
-                        q.scope === 'project' && String(q.project_id) === String(exam.project_id)
-                    );
-                } else {
-                    poolQuestions = MOCK_DATA.examQuestions.filter(q =>
-                        !q.scope || q.scope === 'public'
-                    );
-                }
+                document.querySelector('.exam-layout').innerHTML = `
+                    <div style="display:flex;align-items:center;justify-content:center;flex:1;flex-direction:column;gap:16px;">
+                        <div style="font-size:64px;opacity:0.3;">📋</div>
+                        <h2 style="font-size:22px;color:#374151;margin:0;">题库暂无可用题目</h2>
+                        <p style="font-size:15px;color:#9ca3af;max-width:420px;text-align:center;line-height:1.6;">
+                            本场考试关联的题库中没有可用题目，请联系管理员补充题库后再参加考试。
+                        </p>
+                        <button onclick="location.href='exam-home.html'" style="padding:10px 24px;background:#4f46e5;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;">
+                            返回考试列表
+                        </button>
+                    </div>`;
+                throw new Error('题库为空，无法生成试卷');
             }
 
             // 按抽题规则选择题目（题型 + 难度 + 每题分数）

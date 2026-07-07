@@ -224,7 +224,10 @@
         try {
           const result = await ApiClient.addExam(exam);
           exam.id = result.id;
-        } catch (e) { console.warn('[迁移层] addExam API 失败:', e.message); }
+        } catch (e) {
+          console.warn('[迁移层] addExam API 失败:', e.message);
+          throw e; // 向上抛出，让调用方提示用户
+        }
       }
       return origAddExam.call(this, exam);
     };
