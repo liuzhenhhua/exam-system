@@ -61,7 +61,7 @@ router.post('/', adminOnly, async (req, res) => {
     const existing = await db.get('SELECT id FROM users WHERE username = ?', username);
     if (existing) return res.status(400).json({ error: '工号已存在' });
 
-    const hash = bcrypt.hashSync(password || '123456', 10);
+    const hash = await bcrypt.hash(password || '123456', 10);
     const result = await db.run(`
       INSERT INTO users (username, password_hash, real_name, department_id, department, position, status, project_ids, created)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)

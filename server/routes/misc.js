@@ -34,7 +34,7 @@ router.post('/admins', adminOnly, async (req, res) => {
     const db = getDb();
     const { username, password, real_name, role, department } = req.body;
     if (!username || !password) return res.status(400).json({ error: '账号和密码为必填项' });
-    const hash = bcrypt.hashSync(password, 10);
+    const hash = await bcrypt.hash(password, 10);
     const result = await db.run(`
       INSERT INTO admins (username, password_hash, real_name, department, role, status, created)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -54,7 +54,7 @@ router.put('/admins/:id', adminOnly, async (req, res) => {
     if (real_name !== undefined) { fields.push('real_name = ?'); params.push(real_name); }
     if (role !== undefined) { fields.push('role = ?'); params.push(role); }
     if (status !== undefined) { fields.push('status = ?'); params.push(status); }
-    if (password) { fields.push('password_hash = ?'); params.push(bcrypt.hashSync(password, 10)); }
+    if (password) { fields.push('password_hash = ?'); params.push(await bcrypt.hash(password, 10)); }
     if (modules !== undefined) { fields.push('modules = ?'); params.push(JSON.stringify(modules)); }
     if (project_ids !== undefined) { fields.push('project_ids = ?'); params.push(JSON.stringify(project_ids)); }
     if (fields.length > 0) { params.push(req.params.id); await db.run(`UPDATE admins SET ${fields.join(', ')} WHERE id = ?`, ...params); }
