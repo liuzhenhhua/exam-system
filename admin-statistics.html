@@ -661,12 +661,12 @@
             if (!AdminGuard.enforceModule('statistics', '.main-content')) return;
         // ========== 数据同步事件监听（跨设备数据同步） ==========
         (function() {
-            var _synced = {};
-            ['admin_exams', 'examinee_accounts'].forEach(function(k) {
+            var _syncTimers = {};
+            ['admin_exams', 'examinee_accounts', 'projects'].forEach(function(k) {
                 window.addEventListener("datasync:refresh", function(e) {
-                    if (e.detail === k && !_synced[k]) {
-                        _synced[k] = true;
-                        onProjectChange();
+                    if (e.detail === k) {
+                        clearTimeout(_syncTimers[k]);
+                        _syncTimers[k] = setTimeout(function() { onProjectChange(); }, 300);
                     }
                 });
             });

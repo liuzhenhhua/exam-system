@@ -20,26 +20,21 @@
     }
   }
 
-  // 通用：异步从后端拉取数据并刷新 localStorage，然后触发页面重新渲染
-  async function syncFromBackend(key, apiCall, renderFn) {
-    if (_refreshing) return;
-    _refreshing = true;
+  // 比较新旧数据是否不同（用于决定是否通知页面重新渲染）
+  function _dataChanged(oldData, newData) {
     try {
-      const available = await ApiClient.useBackend();
-      if (available) {
-        const data = await apiCall();
-        if (data) {
-          Utils.saveLocal(key, data);
-          // 如果页面提供了渲染函数，重新渲染
-          if (renderFn && typeof renderFn === 'function') {
-            renderFn();
-          }
-        }
-      }
+      return JSON.stringify(oldData) !== JSON.stringify(newData);
     } catch (e) {
-      // 静默失败
-    } finally {
-      _refreshing = false;
+      return true; // 序列化失败时保守地认为有变化
+    }
+  }
+
+  // 通用：保存后端数据到 localStorage，如果数据有变化则通知页面重新渲染
+  function _syncAndNotify(key, newData) {
+    const oldData = Utils.getLocal(key);
+    Utils.saveLocal(key, newData);
+    if (_dataChanged(oldData, newData)) {
+      _notifyDataReady(key);
     }
   }
 
@@ -93,8 +88,7 @@
                   real_name: u.real_name || u.realName || '',
                   project_ids: u.project_ids || [],
                 }));
-                Utils.saveLocal('examinee_accounts', users);
-                if (!stored || !stored.length) _notifyDataReady('examinee_accounts');
+                _syncAndNotify('examinee_accounts', users);
               }
             }).catch(() => {});
           }
@@ -184,8 +178,7 @@
           if (available && !_mutationLock) {
             ApiClient.getExams({ pageSize: 500 }).then(data => {
               if (data.exams && !_mutationLock) {
-                Utils.saveLocal('admin_exams', data.exams);
-                if (!stored || !stored.length) _notifyDataReady('admin_exams');
+                _syncAndNotify('admin_exams', data.exams);
               }
             }).catch(() => {});
           }
@@ -260,8 +253,7 @@
           if (available && !_mutationLock) {
             ApiClient.getQuestions({ pageSize: 2000 }).then(data => {
               if (data.questions && !_mutationLock) {
-                Utils.saveLocal('question_bank', data.questions);
-                if (!stored || !stored.length) _notifyDataReady('question_bank');
+                _syncAndNotify('question_bank', data.questions);
               }
             }).catch(() => {});
           }
@@ -272,12 +264,25 @@
 
     const origAddQuestion = QuestionBankManager.addQuestion;
     QuestionBankManager.addQuestion = function (question) {
+      // 先同步保存到 localStorage（保证页面立即渲染）
       const result = origAddQuestion.call(this, question);
-      // 异步同步到后端
+      const localId = question.id;
+      // 异步同步到后端，并用后端 ID 替换本地 ID
       ApiClient.useBackend().then(available => {
         if (available) {
-          ApiClient.addQuestion(question).catch(e =>
-            console.warn('[迁移层] addQuestion API 失败:', e.message));
+          _mutationLock = true;
+          ApiClient.addQuestion(question).then(apiResult => {
+            if (apiResult && apiResult.id && apiResult.id !== localId) {
+              // 用后端 ID 替换 localStorage 中的本地 ID
+              const questions = Utils.getLocal('question_bank') || [];
+              const idx = questions.findIndex(q => q.id === localId);
+              if (idx !== -1) {
+                questions[idx].id = apiResult.id;
+                Utils.saveLocal('question_bank', questions);
+              }
+            }
+          }).catch(e => console.warn('[迁移层] addQuestion API 失败:', e.message))
+            .finally(() => { setTimeout(() => { _mutationLock = false; }, 3000); });
         }
       });
       return result;
@@ -307,15 +312,25 @@
 
     const origBatchAddQuestions = QuestionBankManager.batchAddQuestions;
     QuestionBankManager.batchAddQuestions = async function (questions, scope, projectId) {
+      let backendSuccess = false;
       if (await ApiClient.useBackend()) {
+        _mutationLock = true;
         try {
           await ApiClient.batchAddQuestions(questions, scope, projectId);
-          // 从后端重新拉取最新题库
+          // 从后端重新拉取最新题库（包含正确的后端 ID）
           const data = await ApiClient.getQuestions({ pageSize: 2000 });
-          if (data.questions) Utils.saveLocal('question_bank', data.questions);
+          if (data.questions) {
+            _syncAndNotify('question_bank', data.questions);
+            backendSuccess = true;
+          }
         } catch (e) { console.warn('[迁移层] batchAddQuestions API 失败:', e.message); }
+        setTimeout(() => { _mutationLock = false; }, 5000);
       }
-      return origBatchAddQuestions.call(this, questions, scope, projectId);
+      // 后端成功时不再调用 origBatchAddQuestions（数据已在 localStorage 中，且 ID 正确）
+      if (!backendSuccess) {
+        return origBatchAddQuestions.call(this, questions, scope, projectId);
+      }
+      return questions.length;
     };
 
     // --- ResultManager ---
@@ -373,6 +388,9 @@
                   return br;
                 });
                 Utils.saveLocal('exam_results', merged);
+                if (_dataChanged(stored, merged)) {
+                  _notifyDataReady('exam_results');
+                }
                 // 异步补充缺失的详情数据
                 for (let i = 0; i < merged.length; i++) {
                   const r = merged[i];
@@ -448,22 +466,24 @@
     const origGetDepts = DepartmentManager.getDepartments;
     DepartmentManager.getDepartments = function () {
       const stored = Utils.getLocal('departments');
-      ApiClient.useBackend().then(available => {
-        if (available) {
-          ApiClient.getDepartments().then(data => {
-            if (data.departments) {
-              // 转换 parent_id → parentId 以兼容前端
-              const depts = data.departments.map(d => ({
-                id: d.id,
-                name: d.name,
-                level: d.level,
-                parentId: d.parent_id || d.parentId || null
-              }));
-              Utils.saveLocal('departments', depts);
-            }
-          }).catch(() => {});
-        }
-      });
+      if (!_mutationLock) {
+        ApiClient.useBackend().then(available => {
+          if (available && !_mutationLock) {
+            ApiClient.getDepartments().then(data => {
+              if (data.departments && !_mutationLock) {
+                // 转换 parent_id → parentId 以兼容前端
+                const depts = data.departments.map(d => ({
+                  id: d.id,
+                  name: d.name,
+                  level: d.level,
+                  parentId: d.parent_id || d.parentId || null
+                }));
+                _syncAndNotify('departments', depts);
+              }
+            }).catch(() => {});
+          }
+        });
+      }
       return stored || [];
     };
 
@@ -518,8 +538,7 @@
           if (available && !_mutationLock) {
             ApiClient.getAdmins().then(data => {
               if (data.admins && !_mutationLock) {
-                Utils.saveLocal('admin_accounts', data.admins);
-                if (!stored || !stored.length) _notifyDataReady('admin_accounts');
+                _syncAndNotify('admin_accounts', data.admins);
               }
             }).catch(() => {});
           }
@@ -589,21 +608,23 @@
       const origGetPositions = PositionManager.getPositions;
       PositionManager.getPositions = function () {
         const stored = Utils.getLocal('positions');
-        ApiClient.useBackend().then(available => {
-          if (available) {
-            ApiClient.getPositions().then(data => {
-              if (data.positions) {
-                // 转换 sort_order → sortOrder 以兼容前端
-                const positions = data.positions.map(p => ({
-                  id: p.id,
-                  name: p.name,
-                  sortOrder: p.sort_order !== undefined ? p.sort_order : (p.sortOrder || 0)
-                }));
-                Utils.saveLocal('positions', positions);
-              }
-            }).catch(() => {});
-          }
-        });
+        if (!_mutationLock) {
+          ApiClient.useBackend().then(available => {
+            if (available && !_mutationLock) {
+              ApiClient.getPositions().then(data => {
+                if (data.positions && !_mutationLock) {
+                  // 转换 sort_order → sortOrder 以兼容前端
+                  const positions = data.positions.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    sortOrder: p.sort_order !== undefined ? p.sort_order : (p.sortOrder || 0)
+                  }));
+                  _syncAndNotify('positions', positions);
+                }
+              }).catch(() => {});
+            }
+          });
+        }
         return stored || [];
       };
 
@@ -635,6 +656,130 @@
           ApiClient.deletePosition(id).catch(() => {});
         }
         return origDeletePosition.call(this, id);
+      };
+    }
+
+    // --- ProjectManager（项目数据同步）---
+    if (typeof ProjectManager !== 'undefined') {
+      const origGetProjects = ProjectManager.getProjects;
+      ProjectManager.getProjects = function () {
+        const stored = Utils.getLocal('projects');
+        if (!_mutationLock) {
+          ApiClient.useBackend().then(available => {
+            if (available && !_mutationLock) {
+              ApiClient.getProjects().then(data => {
+                if (data.projects && !_mutationLock) {
+                  _syncAndNotify('projects', data.projects);
+                }
+              }).catch(() => {});
+            }
+          });
+        }
+        return stored || [];
+      };
+
+      const origAddProject = ProjectManager.addProject;
+      ProjectManager.addProject = function (project) {
+        const result = origAddProject.call(this, project);
+        const localId = project.id;
+        ApiClient.useBackend().then(available => {
+          if (available) {
+            _mutationLock = true;
+            ApiClient.addProject({
+              name: project.name,
+              code: project.code || '',
+              description: project.description || ''
+            }).then(apiResult => {
+              if (apiResult && apiResult.id && apiResult.id !== localId) {
+                const projects = Utils.getLocal('projects') || [];
+                const idx = projects.findIndex(p => p.id === localId);
+                if (idx !== -1) {
+                  projects[idx].id = apiResult.id;
+                  Utils.saveLocal('projects', projects);
+                }
+              }
+            }).catch(e => console.warn('[迁移层] addProject API 失败:', e.message))
+              .finally(() => { setTimeout(() => { _mutationLock = false; }, 3000); });
+          }
+        });
+        return result;
+      };
+
+      const origUpdateProject = ProjectManager.updateProject;
+      ProjectManager.updateProject = async function (id, updates) {
+        if (await ApiClient.useBackend()) {
+          _mutationLock = true;
+          try {
+            await ApiClient.updateProject(id, {
+              name: updates.name,
+              code: updates.code,
+              description: updates.description,
+              status: updates.status
+            });
+          } catch (e) { console.warn('[迁移层] updateProject API 失败:', e.message); }
+          setTimeout(() => { _mutationLock = false; }, 5000);
+        }
+        return origUpdateProject.call(this, id, updates);
+      };
+
+      const origDeleteProject = ProjectManager.deleteProject;
+      ProjectManager.deleteProject = async function (id) {
+        if (await ApiClient.useBackend()) {
+          _mutationLock = true;
+          try { await ApiClient.deleteProject(id); }
+          catch (e) { console.warn('[迁移层] deleteProject API 失败:', e.message); }
+          setTimeout(() => { _mutationLock = false; }, 5000);
+        }
+        return origDeleteProject.call(this, id);
+      };
+    }
+
+    // --- SettingsManager（分类数据同步）---
+    if (typeof SettingsManager !== 'undefined') {
+      const origGetCategories = SettingsManager.getCategories;
+      SettingsManager.getCategories = function () {
+        // 先返回本地缓存的分类
+        const settings = Utils.getLocal('system_settings');
+        const localCats = settings ? settings.categories : null;
+        // 异步从后端拉取最新分类
+        ApiClient.useBackend().then(available => {
+          if (available && !_mutationLock) {
+            ApiClient.getCategories().then(data => {
+              if (data.categories && !_mutationLock) {
+                // 将后端分类同步到本地 settings
+                const currentSettings = Utils.getLocal('system_settings') || SettingsManager.getSettings();
+                const oldJson = JSON.stringify(currentSettings.categories || []);
+                currentSettings.categories = data.categories;
+                Utils.saveLocal('system_settings', currentSettings);
+                if (oldJson !== JSON.stringify(data.categories)) {
+                  _notifyDataReady('system_settings');
+                }
+              }
+            }).catch(() => {});
+          }
+        });
+        return localCats || origGetCategories.call(this);
+      };
+
+      const origAddCategory = SettingsManager.addCategory;
+      SettingsManager.addCategory = function (name) {
+        const result = origAddCategory.call(this, name);
+        ApiClient.useBackend().then(available => {
+          if (available) {
+            ApiClient.addCategory(name).catch(e =>
+              console.warn('[迁移层] addCategory API 失败:', e.message));
+          }
+        });
+        return result;
+      };
+
+      const origDeleteCategory = SettingsManager.deleteCategory;
+      SettingsManager.deleteCategory = async function (id) {
+        if (await ApiClient.useBackend()) {
+          try { await ApiClient.deleteCategory(id); }
+          catch (e) { console.warn('[迁移层] deleteCategory API 失败:', e.message); }
+        }
+        return origDeleteCategory.call(this, id);
       };
     }
   }

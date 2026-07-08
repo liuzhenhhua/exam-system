@@ -602,12 +602,12 @@
             if (!AdminGuard.enforceModule('dashboard', '.main-content')) return;
         // ========== 数据同步事件监听（跨设备数据同步） ==========
         (function() {
-            var _synced = {};
-            ['admin_exams', 'question_bank'].forEach(function(k) {
+            var _syncTimers = {};
+            ['admin_exams', 'question_bank', 'projects'].forEach(function(k) {
                 window.addEventListener("datasync:refresh", function(e) {
-                    if (e.detail === k && !_synced[k]) {
-                        _synced[k] = true;
-                        renderDashboardStats();
+                    if (e.detail === k) {
+                        clearTimeout(_syncTimers[k]);
+                        _syncTimers[k] = setTimeout(function() { renderDashboardStats(); }, 300);
                     }
                 });
             });
