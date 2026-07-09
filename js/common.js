@@ -2144,14 +2144,17 @@ const QuestionParser = {
     },
 
     // 解析单行内的多个选项，如 "A.短剧安卓素材 B.短剧ios素材 C.短剧通用素材"
+    // 也处理图片选项（文本为空），如 "A. B. C. D."
     parseInlineOptions(line) {
         const options = [];
-        // 按 A. B. C. D. 拆分，支持 . 、 ) ） 后接内容
-        const parts = line.split(/(?=[A-F][\.\、\)）])/);
+        // 按 A. B. C. D. 拆分，支持 . 、 ) ） 后接内容，支持全角字母
+        const parts = line.split(/(?=[A-FＡ-Ｆ][\.\、\)）])/);
         parts.forEach(part => {
-            const m = part.trim().match(/^([A-F])[\.\、\)）]\s*(.+)$/);
+            // 用 .* 替代 .+ 以支持空文本（图片选项）
+            const m = part.trim().match(/^([A-FＡ-Ｆ])[\.\、\)）]\s*(.*)$/);
             if (m) {
-                options.push({ letter: this.toHalfWidth(m[1]).toUpperCase(), text: m[2].trim() });
+                const text = m[2].trim();
+                options.push({ letter: this.toHalfWidth(m[1]).toUpperCase(), text: text || '[图片选项]' });
             }
         });
         return options;
@@ -2184,9 +2187,22 @@ const QuestionParser = {
         const questions = [];
         let current = null;
         let shortAnswerBuffer = [];
+        let sectionType = null; // 章节类型上下文：'choice'/'single'/'multiple'/'judge'/'short'
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
+
+            // 章节标题检测：如 "一、选择题" "二、简答题" "三、判断题"
+            const sectionMatch = line.match(/^[一二三四五六七八九十]+[\、\.]\s*(选择|判断|简答|单选|多选|问答|论述|填空)/);
+            if (sectionMatch) {
+                const heading = sectionMatch[1];
+                if (/多选/.test(heading)) sectionType = 'multiple';
+                else if (/单选/.test(heading)) sectionType = 'single';
+                else if (/判断/.test(heading)) sectionType = 'judge';
+                else if (/简答|问答|论述/.test(heading)) sectionType = 'short';
+                else if (/选择/.test(heading)) sectionType = 'choice';
+                continue;
+            }
 
             // 检测题目开头：数字+点/括号，如 "1." "1、" "(1)" "一、"
             const qMatch = line.match(/^(\d+[\.\、\)）]|[(（]\d+[)）]|[一二三四五六七八九十]+[\、\.])\s*/);
@@ -2236,7 +2252,8 @@ const QuestionParser = {
                     answer: null,
                     analysis: '',
                     type: null,
-                    difficulty: 1
+                    difficulty: 1,
+                    sectionType: sectionType
                 };
 
                 // 检测题型关键词（含括号标记如 (多选)、（单选）等）
@@ -2259,16 +2276,21 @@ const QuestionParser = {
                 if (!current.type && (/请.*说明|请.*解释|请.*简述|分点|简述|解释|说明/.test(content) || /[?？]\s*$/.test(content))) {
                     current.type = 'short';
                 }
+
+                // 章节上下文回退：如果是简答题章节，直接标记为简答
+                if (!current.type && sectionType === 'short') {
+                    current.type = 'short';
+                }
                 continue;
             }
 
             if (!current) continue;
 
-            // 检测选项：A. B. C. D. 或 A、B、C、D（含全角）
-            const optionMatch = line.match(/^([A-FＡ-Ｆ])[\.\、\)）]\s*(.+)/);
+            // 检测选项：A. B. C. D. 或 A、B、C、D（含全角），允许空文本（图片选项）
+            const optionMatch = line.match(/^([A-FＡ-Ｆ])[\.\、\)）]\s*(.*)/);
             if (optionMatch && current.type !== 'short') {
                 const letter = this.toHalfWidth(optionMatch[1]).toUpperCase();
-                const optionText = optionMatch[2].trim();
+                const optionText = optionMatch[2].trim() || '[图片选项]';
                 const idx = letter.charCodeAt(0) - 65;
                 // 按字母顺序填入，避免乱序
                 current.options[idx] = optionText;
@@ -2286,6 +2308,11 @@ const QuestionParser = {
             // 检测答案标记（支持多种格式：答案：/正确答案：/参考答案：/【答案】/[答案]）
             if (/^(答案|正确答案|参考答案|标准答案)[:：]\s*/i.test(line) || /^[【\[]\s*答案\s*[】\]]\s*[:：]?\s*/i.test(line)) {
                 const answerText = line.replace(/^(答案|正确答案|参考答案|标准答案)[:：]\s*/i, '').replace(/^[【\[]\s*答案\s*[】\]]\s*[:：]?\s*/i, '');
+                // 简答题：将缓冲的上下文材料追加到题干中
+                if (current.type === 'short' && shortAnswerBuffer.length > 0) {
+                    current.content += '\n' + shortAnswerBuffer.join('\n');
+                    shortAnswerBuffer = [];
+                }
                 current = this.parseAnswer(current, answerText);
                 continue;
             }
@@ -2314,6 +2341,17 @@ const QuestionParser = {
             // 简答题：收集答案直到下一题或显式标记
             if (current.type === 'short') {
                 shortAnswerBuffer.push(line);
+                continue;
+            }
+
+            // 选项续行：已有选项时，将未匹配的行追加到最后一个选项
+            if (current.options.length > 0) {
+                const lastIdx = current.options.length - 1;
+                const lastOpt = current.options[lastIdx];
+                // 只对非图片占位符的选项追加续行内容
+                if (lastOpt && lastOpt !== '[图片选项]') {
+                    current.options[lastIdx] = lastOpt + ' ' + line;
+                }
                 continue;
             }
 
@@ -2391,7 +2429,26 @@ const QuestionParser = {
         // 自动判断题型
         if (!q.type) {
             if (q.options.length === 0) {
-                q.type = 'short';
+                // 章节上下文回退：选择题章节但有图片选项（文本提取为空）
+                if (q.sectionType === 'choice' && q.rawAnswer) {
+                    if (q.rawAnswer.length > 1) {
+                        q.type = 'multiple';
+                    } else {
+                        q.type = 'single';
+                    }
+                    // 创建图片占位选项
+                    const numOpts = Math.max(q.rawAnswer.length, 4);
+                    for (let j = 0; j < numOpts; j++) {
+                        q.options.push('[图片选项]');
+                    }
+                } else if (q.sectionType === 'judge') {
+                    q.type = 'judge';
+                    q.options = ['正确', '错误'];
+                } else if (q.sectionType === 'short') {
+                    q.type = 'short';
+                } else {
+                    q.type = 'short';
+                }
             } else if (q.options.length === 2 && /正确|错误|对|错|√|×/i.test(q.options.join(''))) {
                 q.type = 'judge';
             } else if (Array.isArray(q.answer) && q.answer.length > 1) {
@@ -2427,6 +2484,7 @@ const QuestionParser = {
 
         // 清理临时字段
         delete q.rawAnswer;
+        delete q.sectionType;
 
         return q;
     },
@@ -2435,9 +2493,13 @@ const QuestionParser = {
     parseExcelRows(rows, fieldMap) {
         const questions = [];
         rows.forEach(row => {
-            if (!row[fieldMap.content]) return;
+            // 跳过空行
+            if (!row || typeof row !== 'object') return;
+            const contentVal = row[fieldMap.content];
+            if (!contentVal || !String(contentVal).trim()) return;
+
             const q = {
-                content: String(row[fieldMap.content]).trim(),
+                content: String(contentVal).trim(),
                 type: null,
                 options: [],
                 answer: null,
@@ -2458,9 +2520,9 @@ const QuestionParser = {
             // 难度
             if (row[fieldMap.difficulty]) {
                 const diffStr = String(row[fieldMap.difficulty]).trim();
-                if (/简单|容易|1/i.test(diffStr)) q.difficulty = 1;
-                else if (/中等|2/i.test(diffStr)) q.difficulty = 2;
-                else if (/困难|3/i.test(diffStr)) q.difficulty = 3;
+                if (/简单|容易|^1$|easy/i.test(diffStr)) q.difficulty = 1;
+                else if (/中等|^2$|medium/i.test(diffStr)) q.difficulty = 2;
+                else if (/困难|难|^3$|hard/i.test(diffStr)) q.difficulty = 3;
             }
 
             // 选项
@@ -2468,7 +2530,8 @@ const QuestionParser = {
                 ['A', 'B', 'C', 'D', 'E', 'F'].forEach(letter => {
                     const key = 'option_' + letter.toLowerCase();
                     if (fieldMap[key] && row[fieldMap[key]]) {
-                        q.options.push(String(row[fieldMap[key]]).trim());
+                        const optText = String(row[fieldMap[key]]).trim();
+                        if (optText) q.options.push(optText);
                     }
                 });
 
@@ -2484,8 +2547,9 @@ const QuestionParser = {
                 if (q.type === 'short') {
                     q.answer = answerStr;
                 } else if (q.type === 'judge') {
-                    q.answer = /正确|对|√|A|T/i.test(answerStr) ? 0 : 1;
+                    q.answer = /正确|对|√|A|T|是|Y/i.test(answerStr) ? 0 : 1;
                 } else {
+                    // 提取字母，支持 "ABCD"、"A,B,C,D"、"A B C D" 等格式
                     const letters = answerStr.match(/[A-F]/g);
                     if (letters) {
                         if (letters.length > 1) {
@@ -2537,6 +2601,37 @@ const QuestionParser = {
             answer: '答案',
             analysis: '解析'
         };
+    },
+
+    // 自动检测Excel列名映射（支持多种命名变体）
+    autoDetectFieldMap(headers) {
+        if (!headers || !Array.isArray(headers)) return this.getDefaultFieldMap();
+
+        const findKey = (patterns) => {
+            for (const h of headers) {
+                const lower = String(h).toLowerCase().trim();
+                for (const p of patterns) {
+                    if (p.test(lower) || p.test(String(h).trim())) return h;
+                }
+            }
+            return null;
+        };
+
+        const map = {
+            type: findKey([/题型|类型|题目类型|type/]) || '题型',
+            content: findKey([/题干|题目|内容|问题|content|question/]) || '题干',
+            category: findKey([/分类|类别|标签|category/]) || '分类',
+            difficulty: findKey([/难度|难易度|difficulty/]) || '难度',
+            answer: findKey([/答案|正确答案|参考答案|answer/]) || '答案',
+            analysis: findKey([/解析|答案解析|分析|analysis/]) || '解析',
+            option_a: findKey([/选项a|a选项|option.?a|^a$/]) || '选项A',
+            option_b: findKey([/选项b|b选项|option.?b|^b$/]) || '选项B',
+            option_c: findKey([/选项c|c选项|option.?c|^c$/]) || '选项C',
+            option_d: findKey([/选项d|d选项|option.?d|^d$/]) || '选项D',
+            option_e: findKey([/选项e|e选项|option.?e|^e$/]) || '选项E',
+            option_f: findKey([/选项f|f选项|option.?f|^f$/]) || '选项F'
+        };
+        return map;
     }
 };
 

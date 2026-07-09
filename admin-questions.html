@@ -1200,7 +1200,9 @@
                     const wb = XLSX.read(arrayBuffer, { type: 'array' });
                     const ws = wb.Sheets[wb.SheetNames[0]];
                     const rows = XLSX.utils.sheet_to_json(ws);
-                    const fieldMap = QuestionParser.getDefaultFieldMap();
+                    // 自动检测列名映射，兼容不同命名格式
+                    const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
+                    const fieldMap = QuestionParser.autoDetectFieldMap(headers);
                     parsedQuestions = QuestionParser.parseExcelRows(rows, fieldMap);
                 }
 
