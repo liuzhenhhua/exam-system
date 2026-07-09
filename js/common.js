@@ -2127,15 +2127,16 @@ const QuestionParser = {
         return str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
     },
 
-    // 从题干中提取内嵌答案，如 "...（A）"、"...(ABCD)"、"...（A B C D）"
+    // 从题干中提取内嵌答案，如 "...（A）"、"...(ABCD)"、"...（A B C D）"、"...（AD）多选题"
     extractEmbeddedAnswer(content) {
         // 支持全角/半角括号，括号内可含空格、字母
-        const match = content.match(/[（(]\s*([A-Fa-f\s]+)\s*[）)]\s*$/);
+        // 允许括号后跟类型关键词如"多选题""单选题"等
+        const match = content.match(/[（(]\s*([A-Fa-f\s]+)\s*[）)]\s*(?:多选|单选|判断|简答)?题?\s*$/);
         if (match) {
             const letters = this.toHalfWidth(match[1]).replace(/\s+/g, '').toUpperCase().match(/[A-F]/g);
             if (letters) {
                 return {
-                    content: content.replace(/[（(]\s*[A-Fa-f\s]+\s*[）)]\s*$/, '').trim(),
+                    content: content.replace(/[（(]\s*[A-Fa-f\s]+\s*[）)]\s*(?:多选|单选|判断|简答)?题?\s*$/, '').trim(),
                     answer: letters
                 };
             }
@@ -2145,13 +2146,14 @@ const QuestionParser = {
 
     // 解析单行内的多个选项，如 "A.短剧安卓素材 B.短剧ios素材 C.短剧通用素材"
     // 也处理图片选项（文本为空），如 "A. B. C. D."
+    // 支持 . 、 ) ） : ： 作为分隔符
     parseInlineOptions(line) {
         const options = [];
-        // 按 A. B. C. D. 拆分，支持 . 、 ) ） 后接内容，支持全角字母
-        const parts = line.split(/(?=[A-FＡ-Ｆ][\.\、\)）])/);
+        // 按 A. B. C. D. 拆分，支持 . 、 ) ） : ： 后接内容，支持全角字母
+        const parts = line.split(/(?=[A-FＡ-Ｆ][\.\、\)）:：])/);
         parts.forEach(part => {
             // 用 .* 替代 .+ 以支持空文本（图片选项）
-            const m = part.trim().match(/^([A-FＡ-Ｆ])[\.\、\)）]\s*(.*)$/);
+            const m = part.trim().match(/^([A-FＡ-Ｆ])[\.\、\)）:：]\s*(.*)$/);
             if (m) {
                 const text = m[2].trim();
                 options.push({ letter: this.toHalfWidth(m[1]).toUpperCase(), text: text || '[图片选项]' });
@@ -2206,14 +2208,15 @@ const QuestionParser = {
 
             // 检测题目开头：数字+点/括号，如 "1." "1、" "(1)" "一、"
             const qMatch = line.match(/^(\d+[\.\、\)）]|[(（]\d+[)）]|[一二三四五六七八九十]+[\、\.])\s*/);
-            const isQuestionStart = qMatch && !/^[A-D]\./.test(line);
+            const isQuestionStart = qMatch && !/^[A-FＡ-Ｆ][\.\、\)）:：]/.test(line);
 
             if (isQuestionStart) {
                 const nextContent = line.replace(qMatch[0], '').trim();
 
-                // 跳过章节标题，如 "一、选择题..." "二、简答题..."
-                if (/^(选择|判断|简答|单选|多选|问答|论述)/.test(nextContent) ||
-                    /(选择|判断|简答|单选|多选|问答|论述).*([共有]|共计|题)/.test(nextContent)) {
+                // 跳过章节标题，如 "选择题（一题5分，共60分）" "判断题（一题4分，共20分）"
+                // 注意：只匹配以章节关键词开头且后跟（或行尾的行，避免误跳过含"多选题"的正常题目
+                if (/^(选择|判断|简答|单选|多选|问答|论述)题?\s*[（(]/.test(nextContent) ||
+                    /^(选择|判断|简答|单选|多选|问答|论述)题?\s*$/.test(nextContent)) {
                     continue;
                 }
 
@@ -2221,7 +2224,8 @@ const QuestionParser = {
                 const isShortAnswerContinuation = current && current.type === 'short' &&
                     /^\d+[\.\、]/.test(line) &&
                     !/[?？]/.test(nextContent) &&
-                    !/请|简述|说明|解释|哪些|什么|为什么|怎么/.test(nextContent);
+                    !/请|简述|说明|解释|哪些|什么|为什么|怎么|介绍|描述|分析|列举|阐述|论述|谈谈|比较|总结|规划|设计|制定|提出|流程|步骤|方法/.test(nextContent) &&
+                    !/[（(]\s*\d+\s*分\s*[）)]/.test(nextContent);
 
                 if (isShortAnswerContinuation) {
                     shortAnswerBuffer.push(line);
@@ -2287,7 +2291,8 @@ const QuestionParser = {
             if (!current) continue;
 
             // 检测选项：A. B. C. D. 或 A、B、C、D（含全角），允许空文本（图片选项）
-            const optionMatch = line.match(/^([A-FＡ-Ｆ])[\.\、\)）]\s*(.*)/);
+            // 支持 . 、 ) ） : ： 作为分隔符
+            const optionMatch = line.match(/^([A-FＡ-Ｆ])[\.\、\)）:：]\s*(.*)/);
             if (optionMatch && current.type !== 'short') {
                 const letter = this.toHalfWidth(optionMatch[1]).toUpperCase();
                 const optionText = optionMatch[2].trim() || '[图片选项]';
@@ -2455,6 +2460,20 @@ const QuestionParser = {
                 q.type = 'multiple';
             } else {
                 q.type = 'single';
+            }
+        }
+
+        // 如果选项为空但题型需要选项（非简答题），创建图片占位选项
+        // 这处理 parseAnswer 已设置类型但选项为空的情况
+        if (q.options.length === 0 && q.type !== 'short') {
+            if (q.type === 'judge' || q.sectionType === 'judge') {
+                q.type = 'judge';
+                q.options = ['正确', '错误'];
+            } else {
+                const numOpts = Math.max((q.rawAnswer || []).length, 4);
+                for (let j = 0; j < numOpts; j++) {
+                    q.options.push('[图片选项]');
+                }
             }
         }
 

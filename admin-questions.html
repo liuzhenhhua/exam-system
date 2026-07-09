@@ -601,6 +601,65 @@
                 </div>
             `);
 
+            // 题型切换（必须在 if(existing) 之前注册，以便编辑时 typeOpt.click() 能触发）
+            overlay.querySelectorAll('.type-option').forEach(opt => {
+                opt.addEventListener('click', function() {
+                    overlay.querySelectorAll('.type-option').forEach(o => o.classList.remove('active'));
+                    this.classList.add('active');
+                    this.querySelector('input').checked = true;
+
+                    const type = this.dataset.type;
+                    if (type === 'judge') {
+                        // 判断题只保留2个选项
+                        const container = overlay.querySelector('#options-container');
+                        container.innerHTML = `
+                            <div class="option-row" data-idx="0">
+                                <div class="option-letter">A</div>
+                                <input type="text" class="option-input" value="正确" readonly>
+                                <div class="option-img-btn" onclick="triggerOptionImageUpload(this)" title="上传图片">${ICONS.image}</div>
+                                <img class="option-img-preview" src="" alt="选项图片" onclick="triggerOptionImageUpload(this.parentNode.querySelector('.option-img-btn'))">
+                                <input type="hidden" class="option-img-data" value="">
+                                <div class="mark-correct" onclick="this.classList.toggle('correct')">${ICONS.check}</div>
+                            </div>
+                            <div class="option-row" data-idx="1">
+                                <div class="option-letter">B</div>
+                                <input type="text" class="option-input" value="错误" readonly>
+                                <div class="option-img-btn" onclick="triggerOptionImageUpload(this)" title="上传图片">${ICONS.image}</div>
+                                <img class="option-img-preview" src="" alt="选项图片" onclick="triggerOptionImageUpload(this.parentNode.querySelector('.option-img-btn'))">
+                                <input type="hidden" class="option-img-data" value="">
+                                <div class="mark-correct" onclick="this.classList.toggle('correct')">${ICONS.check}</div>
+                            </div>
+                        `;
+                    } else if (type === 'short') {
+                        // 简答题不需要选项，替换为参考答案输入区
+                        const container = overlay.querySelector('#options-container');
+                        container.innerHTML = `
+                            <div style="padding:12px;background:#f9fafb;border-radius:10px;">
+                                <label style="font-size:13px;color:#6b7280;margin-bottom:8px;display:block;">参考答案 / 评分要点（选填）</label>
+                                <textarea class="input-field" id="q-short-answer" rows="3" placeholder="请输入参考答案或评分要点..." style="resize:vertical;"></textarea>
+                            </div>
+                        `;
+                    } else if (existing === null || (existing && existing.type !== type)) {
+                        // 新增题目或切换到不同题型时，恢复4个空选项
+                        const container = overlay.querySelector('#options-container');
+                        if (container.children.length < 2 || container.querySelector('.option-input[readonly]') || container.querySelector('#q-short-answer')) {
+                            const letters = ['A','B','C','D'];
+                            container.innerHTML = letters.map((l, i) => `
+                                <div class="option-row" data-idx="${i}">
+                                    <div class="option-letter">${l}</div>
+                                    <input type="text" class="option-input" placeholder="选项内容">
+                                    <div class="option-img-btn" onclick="triggerOptionImageUpload(this)" title="上传图片">${ICONS.image}</div>
+                                    <img class="option-img-preview" src="" alt="选项图片" onclick="triggerOptionImageUpload(this.parentNode.querySelector('.option-img-btn'))">
+                                    <input type="hidden" class="option-img-data" value="">
+                                    <div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div>
+                                    <div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div>
+                                </div>
+                            `).join('');
+                        }
+                    }
+                });
+            });
+
             // 如果是编辑，填充现有数据
             if (existing) {
                 // 作用域
@@ -667,65 +726,6 @@
                     `;
                 }
             }
-
-            // 题型切换
-            overlay.querySelectorAll('.type-option').forEach(opt => {
-                opt.addEventListener('click', function() {
-                    overlay.querySelectorAll('.type-option').forEach(o => o.classList.remove('active'));
-                    this.classList.add('active');
-                    this.querySelector('input').checked = true;
-
-                    const type = this.dataset.type;
-                    if (type === 'judge') {
-                        // 判断题只保留2个选项
-                        const container = overlay.querySelector('#options-container');
-                        container.innerHTML = `
-                            <div class="option-row" data-idx="0">
-                                <div class="option-letter">A</div>
-                                <input type="text" class="option-input" value="正确" readonly>
-                                <div class="option-img-btn" onclick="triggerOptionImageUpload(this)" title="上传图片">${ICONS.image}</div>
-                                <img class="option-img-preview" src="" alt="选项图片" onclick="triggerOptionImageUpload(this.parentNode.querySelector('.option-img-btn'))">
-                                <input type="hidden" class="option-img-data" value="">
-                                <div class="mark-correct" onclick="this.classList.toggle('correct')">${ICONS.check}</div>
-                            </div>
-                            <div class="option-row" data-idx="1">
-                                <div class="option-letter">B</div>
-                                <input type="text" class="option-input" value="错误" readonly>
-                                <div class="option-img-btn" onclick="triggerOptionImageUpload(this)" title="上传图片">${ICONS.image}</div>
-                                <img class="option-img-preview" src="" alt="选项图片" onclick="triggerOptionImageUpload(this.parentNode.querySelector('.option-img-btn'))">
-                                <input type="hidden" class="option-img-data" value="">
-                                <div class="mark-correct" onclick="this.classList.toggle('correct')">${ICONS.check}</div>
-                            </div>
-                        `;
-                    } else if (type === 'short') {
-                        // 简答题不需要选项，替换为参考答案输入区
-                        const container = overlay.querySelector('#options-container');
-                        container.innerHTML = `
-                            <div style="padding:12px;background:#f9fafb;border-radius:10px;">
-                                <label style="font-size:13px;color:#6b7280;margin-bottom:8px;display:block;">参考答案 / 评分要点（选填）</label>
-                                <textarea class="input-field" id="q-short-answer" rows="3" placeholder="请输入参考答案或评分要点..." style="resize:vertical;"></textarea>
-                            </div>
-                        `;
-                    } else if (existing === null || (existing && existing.type !== type)) {
-                        // 新增题目切到非判断/简答题型，恢复4个空选项
-                        const container = overlay.querySelector('#options-container');
-                        if (container.children.length < 2 || container.querySelector('.option-input[readonly]')) {
-                            const letters = ['A','B','C','D'];
-                            container.innerHTML = letters.map((l, i) => `
-                                <div class="option-row" data-idx="${i}">
-                                    <div class="option-letter">${l}</div>
-                                    <input type="text" class="option-input" placeholder="选项内容">
-                                    <div class="option-img-btn" onclick="triggerOptionImageUpload(this)" title="上传图片">${ICONS.image}</div>
-                                    <img class="option-img-preview" src="" alt="选项图片" onclick="triggerOptionImageUpload(this.parentNode.querySelector('.option-img-btn'))">
-                                    <input type="hidden" class="option-img-data" value="">
-                                    <div class="mark-correct" onclick="this.classList.toggle('correct')" title="标记为正确答案">${ICONS.check}</div>
-                                    <div class="remove-option" onclick="removeOption(this)" title="删除选项">${ICONS.trash}</div>
-                                </div>
-                            `).join('');
-                        }
-                    }
-                });
-            });
         }
 
         function onScopeSelect(el) {
@@ -1281,34 +1281,18 @@
             Utils.toast(`成功识别 ${parsedQuestions.length} 道题目`, 'success');
         }
 
-        // 编辑预览中的单道题目
+        // 编辑预览中的单道题目（增强版：支持增删选项、切换题型动态更新）
         function editPreviewQuestion(index) {
             const q = parsedQuestions[index];
             if (!q) return;
             const item = document.getElementById(`preview-item-${index}`);
             const categories = ExamSystem.SettingsManager.getCategories();
 
-            let optionsFormHtml = '';
-            if (q.type !== 'short' && q.options) {
-                optionsFormHtml = q.options.map((opt, oi) => {
-                    const isCorrect = q.type === 'multiple'
-                        ? (Array.isArray(q.answer) && q.answer.includes(oi))
-                        : q.answer === oi;
-                    return `
-                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-                            <input type="checkbox" class="preview-opt-correct" data-idx="${oi}" ${isCorrect ? 'checked' : ''} style="accent-color:#4f46e5;">
-                            <span style="font-size:12px;font-weight:600;color:#6b7280;">${Utils.optionLetter(oi)}.</span>
-                            <input type="text" class="preview-opt-text" data-idx="${oi}" value="${Utils.escapeAttr(opt)}" style="flex:1;">
-                        </div>
-                    `;
-                }).join('');
-            }
-
             item.classList.add('editing');
             item.innerHTML = `
                 <div class="preview-edit-form">
                     <div style="display:flex;gap:8px;margin-bottom:8px;">
-                        <select id="preview-type-${index}" style="width:100px;">
+                        <select id="preview-type-${index}" onchange="onPreviewTypeChange(${index})" style="width:100px;">
                             <option value="single" ${q.type === 'single' ? 'selected' : ''}>单选题</option>
                             <option value="multiple" ${q.type === 'multiple' ? 'selected' : ''}>多选题</option>
                             <option value="judge" ${q.type === 'judge' ? 'selected' : ''}>判断题</option>
@@ -1324,9 +1308,7 @@
                         </select>
                     </div>
                     <textarea id="preview-content-${index}" rows="2" placeholder="题干内容" style="width:100%;margin-bottom:8px;">${Utils.escapeHtml(q.content)}</textarea>
-                    ${q.type === 'short' ?
-                        `<textarea id="preview-answer-${index}" rows="2" placeholder="参考答案" style="width:100%;margin-bottom:8px;">${Utils.escapeHtml(q.answer || '')}</textarea>`
-                        : `<div id="preview-opts-${index}" style="margin-bottom:8px;">${optionsFormHtml}</div>`}
+                    <div id="preview-options-area-${index}" style="margin-bottom:8px;"></div>
                     <textarea id="preview-analysis-${index}" rows="1" placeholder="解析（选填）" style="width:100%;margin-bottom:8px;">${Utils.escapeHtml(q.analysis || '')}</textarea>
                     <div style="display:flex;justify-content:flex-end;gap:8px;">
                         <button class="preview-edit-btn" onclick="showParseResult()">取消</button>
@@ -1334,6 +1316,92 @@
                     </div>
                 </div>
             `;
+
+            renderPreviewOptionsArea(index, q);
+        }
+
+        function renderPreviewOptionsArea(index, q) {
+            const area = document.getElementById(`preview-options-area-${index}`);
+            if (!area) return;
+
+            const typeSelect = document.getElementById(`preview-type-${index}`);
+            const type = typeSelect ? typeSelect.value : (q.type || 'single');
+
+            if (type === 'short') {
+                area.innerHTML = `
+                    <textarea id="preview-answer-${index}" rows="3" placeholder="参考答案" style="width:100%;margin-bottom:8px;">${Utils.escapeHtml(q.answer || '')}</textarea>
+                `;
+            } else {
+                let options = q.options || [];
+                if (type === 'judge') {
+                    options = ['正确', '错误'];
+                }
+                if (options.length === 0) {
+                    options = ['', '', '', ''];
+                }
+
+                const inputType = type === 'multiple' ? 'checkbox' : 'radio';
+                const optsHtml = options.map((opt, oi) => {
+                    const isCorrect = type === 'multiple'
+                        ? (Array.isArray(q.answer) && q.answer.includes(oi))
+                        : q.answer === oi;
+                    const optObj = typeof opt === 'object' ? opt : { text: opt || '' };
+                    return `
+                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;" class="preview-opt-row">
+                            <input type="${inputType}" name="preview-correct-${index}" class="preview-opt-correct" data-idx="${oi}" ${isCorrect ? 'checked' : ''} style="accent-color:#4f46e5;">
+                            <span style="font-size:12px;font-weight:600;color:#6b7280;min-width:18px;">${Utils.optionLetter(oi)}.</span>
+                            <input type="text" class="preview-opt-text" data-idx="${oi}" value="${Utils.escapeAttr(optObj.text || '')}" placeholder="选项内容" style="flex:1;" ${type === 'judge' ? 'readonly' : ''}>
+                            ${type !== 'judge' ? `<button class="preview-edit-btn" style="padding:2px 6px;font-size:11px;" onclick="removePreviewOption(${index}, this)">删除</button>` : ''}
+                        </div>
+                    `;
+                }).join('');
+
+                area.innerHTML = `
+                    <div id="preview-opts-${index}">${optsHtml}</div>
+                    ${type !== 'judge' ? `<button class="preview-edit-btn" onclick="addPreviewOption(${index})" style="margin-top:4px;">+ 添加选项</button>` : ''}
+                `;
+            }
+        }
+
+        function onPreviewTypeChange(index) {
+            const q = parsedQuestions[index];
+            renderPreviewOptionsArea(index, q);
+        }
+
+        function addPreviewOption(index) {
+            const optsContainer = document.getElementById(`preview-opts-${index}`);
+            if (!optsContainer) return;
+            const type = document.getElementById(`preview-type-${index}`).value;
+            const oi = optsContainer.querySelectorAll('.preview-opt-row').length;
+            const letter = Utils.optionLetter(oi);
+            const inputType = type === 'multiple' ? 'checkbox' : 'radio';
+
+            const row = document.createElement('div');
+            row.className = 'preview-opt-row';
+            row.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px;';
+            row.innerHTML = `
+                <input type="${inputType}" name="preview-correct-${index}" class="preview-opt-correct" data-idx="${oi}" style="accent-color:#4f46e5;">
+                <span style="font-size:12px;font-weight:600;color:#6b7280;min-width:18px;">${letter}.</span>
+                <input type="text" class="preview-opt-text" data-idx="${oi}" placeholder="选项内容" style="flex:1;">
+                <button class="preview-edit-btn" style="padding:2px 6px;font-size:11px;" onclick="removePreviewOption(${index}, this)">删除</button>
+            `;
+            optsContainer.appendChild(row);
+        }
+
+        function removePreviewOption(index, btn) {
+            const row = btn.closest('.preview-opt-row');
+            if (row) row.remove();
+            const optsContainer = document.getElementById(`preview-opts-${index}`);
+            if (optsContainer) {
+                optsContainer.querySelectorAll('.preview-opt-row').forEach((r, i) => {
+                    const check = r.querySelector('.preview-opt-correct');
+                    const text = r.querySelector('.preview-opt-text');
+                    const span = r.querySelector('span');
+                    if (check) check.dataset.idx = i;
+                    if (text) text.dataset.idx = i;
+                    if (span) span.textContent = Utils.optionLetter(i) + '.';
+                });
+            }
         }
 
         function savePreviewQuestion(index) {
@@ -1346,7 +1414,8 @@
             q.analysis = document.getElementById(`preview-analysis-${index}`).value.trim();
 
             if (q.type === 'short') {
-                q.answer = document.getElementById(`preview-answer-${index}`).value.trim();
+                const ansEl = document.getElementById(`preview-answer-${index}`);
+                q.answer = ansEl ? ansEl.value.trim() : '';
                 q.options = null;
             } else {
                 const optTexts = document.querySelectorAll(`#preview-opts-${index} .preview-opt-text`);
@@ -1354,9 +1423,10 @@
                 q.options = [];
                 const correctIdx = [];
                 optTexts.forEach((input, i) => {
-                    if (input.value.trim()) {
-                        q.options.push(input.value.trim());
-                        if (optChecks[i] && optChecks[i].checked) correctIdx.push(i);
+                    const text = input.value.trim();
+                    if (text || q.type === 'judge') {
+                        q.options.push(q.type === 'judge' ? ['正确', '错误'][i] : text);
+                        if (optChecks[i] && optChecks[i].checked) correctIdx.push(q.options.length - 1);
                     }
                 });
                 if (q.type === 'judge') {
