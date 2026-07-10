@@ -225,10 +225,6 @@
 
         initExamSelect();
 
-        // ========== 权限守卫 ==========
-        (function() {
-            AdminGuard.initSidebar();
-            if (!AdminGuard.enforceModule('review', '.main-content')) return;
         // ========== 数据同步事件监听（跨设备数据同步） ==========
         (function() {
             var _syncTimers = {};
@@ -241,10 +237,13 @@
                 });
             });
         })();
-        // ========== 数据同步事件监听结束 ==========
 
-
+        // ========== 权限守卫 ==========
+        (function() {
+            AdminGuard.initSidebar();
+            if (!AdminGuard.enforceModule('review', '.main-content')) return;
         })();
+
         renderReviewList();
     </script>
 </body>

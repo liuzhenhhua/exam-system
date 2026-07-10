@@ -173,6 +173,9 @@
                     <div id="filter-dept-cascader" style="min-width:240px;">
                         <!-- 级联部门选择器由 JS 填充 -->
                     </div>
+                    <select class="filter-select" id="filter-position" onchange="renderAccounts()">
+                        <option value="">全部岗位</option>
+                    </select>
                     <select class="filter-select" id="filter-project" onchange="renderAccounts()">
                         <option value="">全部项目</option>
                     </select>
@@ -228,6 +231,16 @@
         // 初始化：从后端同步数据后渲染
 
         async function initPage() {
+            // 保存当前筛选器选择，防止异步同步重置
+            const savedFilters = {
+                deptL1: document.getElementById('filter-dept-l1')?.value || '',
+                deptL2: document.getElementById('filter-dept-l2')?.value || '',
+                deptL3: document.getElementById('filter-dept-l3')?.value || '',
+                position: document.getElementById('filter-position')?.value || '',
+                project: document.getElementById('filter-project')?.value || '',
+                status: document.getElementById('filter-status')?.value || '',
+                search: document.getElementById('search-input')?.value || '',
+            };
             if (await ApiClient.useBackend()) {
                 try {
                     const data = await ApiClient.getUsers();
@@ -250,7 +263,25 @@
                 } catch (e) { console.warn('人员数据同步失败:', e.message); }
             }
             populateDeptFilter();
+            populatePositionFilter();
             populateProjectFilterUsers();
+            // 恢复筛选器选择
+            if (savedFilters.deptL1) {
+                const l1 = document.getElementById('filter-dept-l1');
+                if (l1) { l1.value = savedFilters.deptL1; l1.dispatchEvent(new Event('change')); }
+                if (savedFilters.deptL2) {
+                    const l2 = document.getElementById('filter-dept-l2');
+                    if (l2) { l2.value = savedFilters.deptL2; l2.dispatchEvent(new Event('change')); }
+                    if (savedFilters.deptL3) {
+                        const l3 = document.getElementById('filter-dept-l3');
+                        if (l3) l3.value = savedFilters.deptL3;
+                    }
+                }
+            }
+            if (savedFilters.position) document.getElementById('filter-position').value = savedFilters.position;
+            if (savedFilters.project) document.getElementById('filter-project').value = savedFilters.project;
+            if (savedFilters.status) document.getElementById('filter-status').value = savedFilters.status;
+            if (savedFilters.search) document.getElementById('search-input').value = savedFilters.search;
             updateStats();
             renderAccounts();
         }
@@ -318,11 +349,29 @@
         // 填充项目筛选
         function populateProjectFilterUsers() {
             const select = document.getElementById('filter-project');
+            if (!select) return;
+            // 保存当前选择
+            const currentVal = select.value;
             const projects = ExamSystem.ProjectManager.getProjects().filter(p => p.status !== 'deleted');
             select.innerHTML = '<option value="">全部项目</option>';
             projects.forEach(p => {
                 select.innerHTML += `<option value="${Utils.escapeAttr(p.id)}">${Utils.escapeHtml(p.name)}</option>`;
             });
+            // 恢复选择
+            select.value = currentVal;
+        }
+
+        // 填充岗位筛选
+        function populatePositionFilter() {
+            const select = document.getElementById('filter-position');
+            if (!select) return;
+            const currentVal = select.value;
+            const positions = ExamSystem.PositionManager.getPositions ? ExamSystem.PositionManager.getPositions() : [];
+            select.innerHTML = '<option value="">全部岗位</option>';
+            positions.forEach(p => {
+                select.innerHTML += `<option value="${Utils.escapeAttr(p.id)}">${Utils.escapeHtml(p.name)}</option>`;
+            });
+            select.value = currentVal;
         }
 
         // 更新统计
@@ -343,6 +392,7 @@
         function renderAccounts() {
             const accounts = ExamSystem.AccountManager.getExamineeAccounts();
             const deptFilterId = getFilterDeptId();
+            const positionFilter = document.getElementById('filter-position').value;
             const projectFilter = document.getElementById('filter-project').value;
             const statusFilter = document.getElementById('filter-status').value;
             const searchText = document.getElementById('search-input').value.toLowerCase();
@@ -351,17 +401,27 @@
                 if (deptFilterId) {
                     const accountDeptId = a.departmentId;
                     if (!accountDeptId) {
-                        // 旧数据没有 departmentId，按部门路径前缀匹配
+                        // 旧数据没有 departmentId，按部门路径完整匹配
                         const fullPath = ExamSystem.DepartmentManager.getFullPath(deptFilterId);
-                        if (!a.department || !a.department.startsWith(fullPath.split(' / ')[0])) return false;
+                        if (!a.department || !a.department.startsWith(fullPath)) return false;
                     } else {
                         const subIds = ExamSystem.DepartmentManager.getSubIds(deptFilterId);
                         if (!subIds.includes(accountDeptId) && accountDeptId !== deptFilterId) return false;
                     }
                 }
+                // 岗位筛选
+                if (positionFilter) {
+                    const posId = parseInt(positionFilter);
+                    if (a.positionId !== posId && a.position_id !== posId) return false;
+                }
                 if (statusFilter && a.status !== statusFilter) return false;
                 if (projectFilter && !(a.project_ids && a.project_ids.includes(parseInt(projectFilter)))) return false;
-                if (searchText && !a.username.toLowerCase().includes(searchText) && !a.real_name.toLowerCase().includes(searchText)) return false;
+                // 空值安全检查，防止 TypeError
+                if (searchText) {
+                    const username = (a.username || '').toLowerCase();
+                    const realName = (a.real_name || '').toLowerCase();
+                    if (!username.includes(searchText) && !realName.includes(searchText)) return false;
+                }
                 return true;
             });
 
@@ -885,15 +945,11 @@
             URL.revokeObjectURL(url);
         }
 
-        // 初始化
-        // ========== 权限守卫 ==========
-        (function() {
-            AdminGuard.initSidebar();
-            if (!AdminGuard.enforceModule('users', '.main-content')) return;
         // ========== 数据同步事件监听（跨设备数据同步） ==========
+        // 注意：必须在权限守卫之外注册，确保数据更新始终触发重渲染
         (function() {
             var _syncTimers = {};
-            ['examinee_accounts', 'projects'].forEach(function(k) {
+            ['examinee_accounts', 'projects', 'departments', 'positions'].forEach(function(k) {
                 window.addEventListener("datasync:refresh", function(e) {
                     if (e.detail === k) {
                         clearTimeout(_syncTimers[k]);
@@ -902,10 +958,13 @@
                 });
             });
         })();
-        // ========== 数据同步事件监听结束 ==========
 
-
+        // ========== 权限守卫 ==========
+        (function() {
+            AdminGuard.initSidebar();
+            if (!AdminGuard.enforceModule('users', '.main-content')) return;
         })();
+
         initPage();
     </script>
 </body>

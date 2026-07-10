@@ -13,7 +13,8 @@
 
   // 通知页面数据已就绪（用于跨设备同步场景）
   function _notifyDataReady(eventName) {
-    if (typeof window !== 'undefined' && document.readyState === 'complete') {
+    if (typeof window !== 'undefined') {
+      // 无论 readyState 状态如何都派发事件，确保数据更新不被丢失
       requestAnimationFrame(() => {
         window.dispatchEvent(new CustomEvent('datasync:refresh', { detail: eventName }));
       });
@@ -45,7 +46,40 @@
     if (available) {
       patchLoginFlow();
       patchDataManagers();
+      startPolling();
     }
+  }
+
+  // 定时轮询：每30秒从后端同步关键数据，确保跨管理员数据共享
+  function startPolling() {
+    setInterval(async () => {
+      if (_mutationLock) return;
+      try {
+        const available = await ApiClient.useBackend();
+        if (!available) return;
+        // 同步题目数据
+        const qData = await ApiClient.getQuestions({ pageSize: 2000 });
+        if (qData.questions && !_mutationLock) {
+          _syncAndNotify('question_bank', qData.questions);
+        }
+        // 同步人员数据
+        if (typeof ApiClient.getUsers === 'function') {
+          const uData = await ApiClient.getUsers();
+          if (uData.users && !_mutationLock) {
+            _syncAndNotify('examinee_accounts', uData.users);
+          }
+        }
+        // 同步考试数据
+        if (typeof ApiClient.getExams === 'function') {
+          const eData = await ApiClient.getExams();
+          if (eData.exams && !_mutationLock) {
+            _syncAndNotify('admin_exams', eData.exams);
+          }
+        }
+      } catch (e) {
+        // 静默失败，下次重试
+      }
+    }, 30000);
   }
 
   function patchLoginFlow() {
@@ -130,7 +164,7 @@
         }
         try { await ApiClient.updateUser(id, apiUpdates); }
         catch (e) { console.warn('[迁移层] updateUser API 失败:', e.message); }
-        setTimeout(() => { _mutationLock = false; }, 5000);
+        setTimeout(() => { _mutationLock = false; }, 1500);
       }
       return origUpdateAccount.call(this, id, updates);
     };
@@ -141,7 +175,7 @@
         _mutationLock = true;
         try { await ApiClient.deleteUser(id); }
         catch (e) { console.warn('[迁移层] deleteUser API 失败:', e.message); }
-        setTimeout(() => { _mutationLock = false; }, 5000);
+        setTimeout(() => { _mutationLock = false; }, 1500);
       }
       return origDeleteAccount.call(this, id);
     };
@@ -164,7 +198,7 @@
         }));
         try { await ApiClient.batchAddUsers(apiUsers); }
         catch (e) { console.warn('[迁移层] batchAddUsers API 失败:', e.message); }
-        setTimeout(() => { _mutationLock = false; }, 5000);
+        setTimeout(() => { _mutationLock = false; }, 1500);
       }
       return origBatchAdd.call(this, accountList);
     };
@@ -239,7 +273,7 @@
         _mutationLock = true;
         try { await ApiClient.deleteExam(id); }
         catch (e) { console.warn('[迁移层] deleteExam API 失败:', e.message); }
-        setTimeout(() => { _mutationLock = false; }, 5000);
+        setTimeout(() => { _mutationLock = false; }, 1500);
       }
       return origDeleteExam.call(this, id);
     };
@@ -282,7 +316,7 @@
               }
             }
           }).catch(e => console.warn('[迁移层] addQuestion API 失败:', e.message))
-            .finally(() => { setTimeout(() => { _mutationLock = false; }, 3000); });
+            .finally(() => { setTimeout(() => { _mutationLock = false; }, 1000); });
         }
       });
       return result;
@@ -294,7 +328,7 @@
         _mutationLock = true;
         try { await ApiClient.updateQuestion(id, updates); }
         catch (e) { console.warn('[迁移层] updateQuestion API 失败:', e.message); }
-        setTimeout(() => { _mutationLock = false; }, 5000);
+        setTimeout(() => { _mutationLock = false; }, 1500);
       }
       return origUpdateQuestion.call(this, id, updates);
     };
@@ -305,7 +339,7 @@
         _mutationLock = true;
         try { await ApiClient.deleteQuestion(id); }
         catch (e) { console.warn('[迁移层] deleteQuestion API 失败:', e.message); }
-        setTimeout(() => { _mutationLock = false; }, 5000);
+        setTimeout(() => { _mutationLock = false; }, 1500);
       }
       return origDeleteQuestion.call(this, id);
     };
@@ -324,7 +358,7 @@
             backendSuccess = true;
           }
         } catch (e) { console.warn('[迁移层] batchAddQuestions API 失败:', e.message); }
-        setTimeout(() => { _mutationLock = false; }, 5000);
+        setTimeout(() => { _mutationLock = false; }, 1500);
       }
       // 后端成功时不再调用 origBatchAddQuestions（数据已在 localStorage 中，且 ID 正确）
       if (!backendSuccess) {
@@ -444,7 +478,7 @@
         } catch (e) { console.warn('[迁移层] submitResult API 失败:', e.message); }
         // 不再从后端重新拉取全部结果（会覆盖本地 examTitle/results 等字段）
         // 而是让 origAddResult 把 resultData 存入 localStorage
-        setTimeout(() => { _mutationLock = false; }, 5000);
+        setTimeout(() => { _mutationLock = false; }, 1500);
       }
       return origAddResult.call(this, resultData);
     };
@@ -457,7 +491,7 @@
         try {
           await ApiClient.reviewQuestion(resultId, questionIndex, score, comment);
         } catch (e) { console.warn('[迁移层] reviewQuestion API 失败:', e.message); }
-        setTimeout(() => { _mutationLock = false; }, 5000);
+        setTimeout(() => { _mutationLock = false; }, 1500);
       }
       return origScoreQuestion.call(this, resultId, questionIndex, score, comment);
     };
@@ -717,7 +751,7 @@
               status: updates.status
             });
           } catch (e) { console.warn('[迁移层] updateProject API 失败:', e.message); }
-          setTimeout(() => { _mutationLock = false; }, 5000);
+          setTimeout(() => { _mutationLock = false; }, 1500);
         }
         return origUpdateProject.call(this, id, updates);
       };
@@ -728,7 +762,7 @@
           _mutationLock = true;
           try { await ApiClient.deleteProject(id); }
           catch (e) { console.warn('[迁移层] deleteProject API 失败:', e.message); }
-          setTimeout(() => { _mutationLock = false; }, 5000);
+          setTimeout(() => { _mutationLock = false; }, 1500);
         }
         return origDeleteProject.call(this, id);
       };

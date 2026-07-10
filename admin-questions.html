@@ -1605,10 +1605,10 @@
 
         function batchDelete() {
             const count = selectedQuestionIds.size;
-            Utils.confirm(`确定要删除选中的 ${count} 道题目吗？删除后不可恢复。`, () => {
-                selectedQuestionIds.forEach(id => {
-                    ExamSystem.QuestionBankManager.deleteQuestion(id);
-                });
+            Utils.confirm(`确定要删除选中的 ${count} 道题目吗？删除后不可恢复。`, async () => {
+                const ids = Array.from(selectedQuestionIds);
+                // 并行删除所有选中的题目，等待全部完成
+                await Promise.all(ids.map(id => ExamSystem.QuestionBankManager.deleteQuestion(id)));
                 Utils.toast(`已删除 ${count} 道题目`, 'success');
                 selectedQuestionIds.clear();
                 renderQuestions();
@@ -1807,11 +1807,8 @@
             renderProjectCards();
         }
 
-        // ========== 权限守卫 ==========
-        (function() {
-            AdminGuard.initSidebar();
-            if (!AdminGuard.enforceModule('questions', '.main-content')) return;
         // ========== 数据同步事件监听（跨设备数据同步） ==========
+        // 注意：必须在权限守卫之外注册，确保数据更新始终触发重渲染
         (function() {
             var _syncTimers = {};
             ['question_bank', 'projects', 'system_settings'].forEach(function(k) {
@@ -1823,10 +1820,13 @@
                 });
             });
         })();
-        // ========== 数据同步事件监听结束 ==========
 
-
+        // ========== 权限守卫 ==========
+        (function() {
+            AdminGuard.initSidebar();
+            if (!AdminGuard.enforceModule('questions', '.main-content')) return;
         })();
+
         initPage();
     </script>
 </body>

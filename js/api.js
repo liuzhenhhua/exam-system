@@ -88,9 +88,15 @@ window.ApiClient = (function () {
     }
   }
 
-  // 检测后端是否可用
+  // 检测后端是否可用（失败后允许重试，不永久缓存 false）
+  let _lastCheckTime = 0;
+  const _retryInterval = 10000; // 10秒后允许重试
   async function checkBackend() {
-    if (_backendAvailable !== null) return _backendAvailable;
+    const now = Date.now();
+    // 如果之前检测过且为 false，超过重试间隔后允许重新检测
+    if (_backendAvailable === false && (now - _lastCheckTime) < _retryInterval) return false;
+    if (_backendAvailable === true) return true;
+    _lastCheckTime = now;
     try {
       await request('GET', '/health');
       _backendAvailable = true;
@@ -103,7 +109,6 @@ window.ApiClient = (function () {
   // 判断是否应该使用后端
   async function useBackend() {
     if (_backendAvailable === true) return true;
-    if (_backendAvailable === false) return false;
     return await checkBackend();
   }
 

@@ -596,14 +596,10 @@
         (function(){var u=Utils.getLocal('current_user');if(u&&u.real_name){document.getElementById('topbar-name').textContent=u.real_name;document.getElementById('topbar-avatar').textContent=u.real_name.charAt(0);var r=u.department?u.department+' · ':'',s=AdminManager.roleText(u.role||'');document.getElementById('topbar-role').textContent=r+s;}})();
     </script>
     <script>
-        // ========== 权限守卫 ==========
-        (function() {
-            AdminGuard.initSidebar();
-            if (!AdminGuard.enforceModule('dashboard', '.main-content')) return;
         // ========== 数据同步事件监听（跨设备数据同步） ==========
         (function() {
             var _syncTimers = {};
-            ['admin_exams', 'question_bank', 'projects'].forEach(function(k) {
+            ['admin_exams', 'question_bank', 'projects', 'examinee_accounts'].forEach(function(k) {
                 window.addEventListener("datasync:refresh", function(e) {
                     if (e.detail === k) {
                         clearTimeout(_syncTimers[k]);
@@ -612,10 +608,13 @@
                 });
             });
         })();
-        // ========== 数据同步事件监听结束 ==========
 
-
+        // ========== 权限守卫 ==========
+        (function() {
+            AdminGuard.initSidebar();
+            if (!AdminGuard.enforceModule('dashboard', '.main-content')) return;
         })();
+
         // 动态计算看板统计数据
         function renderDashboardStats() {
             // 题库总数
